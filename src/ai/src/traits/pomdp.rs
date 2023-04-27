@@ -1,6 +1,3 @@
-
-
-
 // MultiAgentPartiallyObservableMarkovDecisionProcess
 trait MaPomdp<ObservationSeq, Observation, State, Action, const N: usize> {
   fn start(&self) -> ObservationSeq;
@@ -14,14 +11,16 @@ trait MaPomdp<ObservationSeq, Observation, State, Action, const N: usize> {
   // A state is terminal, if any agent's action list is empty
   fn actions(&self, state: &State, agent: usize) -> Vec<Action>;
 
-  fn transition(&self, state: &mut State, joint_action: &[Action; N]) -> TranstitionResult<Observation, N>;
+  fn transition(
+    &self,
+    state: &mut State,
+    joint_action: &[Action; N],
+  ) -> TranstitionResult<Observation, N>;
 
   fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation);
 }
 
-
-
 struct TranstitionResult<Observation, const N: usize> {
   observations: [Observation; N],
-  rewards: [f32; N]
+  rewards: [f32; N],
 }
