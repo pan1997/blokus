@@ -2,6 +2,9 @@
   "definitions": {
     "player": {
       "enum": ["P1", "P2", "P3", "P4"]
+    },
+    "tile": {
+      "enum": ["T1", "T2", "T3", "T4", "T5", "T6"]
     }
   },
   "properties": {
@@ -14,6 +17,11 @@
           "ref": "player",
           "nullable": true
         }
+      }
+    },
+    "remaining_tiles": {
+      "elements": {
+        "ref": "tile"
       }
     }
   },
