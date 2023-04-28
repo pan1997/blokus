@@ -25,6 +25,18 @@ pub trait MaPomdp<ObservationSeq, Observation, State, Action, const N: usize> {
   fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation);
 }
 
+pub trait BlockMaPomdp<ObservationSeq, Observation, State, Action, const N: usize>:
+  MaPomdp<ObservationSeq, Observation, State, Action, N>
+{
+  fn transition_block<const B: usize>(
+    &self,
+    states: &mut [State; B],
+    joint_actions: &[[Action; N]; B],
+  ) -> [TranstitionResult<Observation, N>; B];
+
+  fn sample_block<const B: usize>(observation_seq: &ObservationSeq, agent: usize) -> [State; B];
+}
+
 pub struct TranstitionResult<Observation, const N: usize> {
   pub observations: [Observation; N],
   pub rewards: [f32; N],
