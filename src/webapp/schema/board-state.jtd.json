@@ -1,0 +1,25 @@
+{
+  "definitions": {
+    "player": {
+      "enum": ["P1", "P2", "P3", "P4"]
+    }
+  },
+  "properties": {
+    "over": {
+      "type": "boolean"
+    },
+    "table": {
+      "elements": {
+        "elements": {
+          "ref": "player",
+          "nullable": true
+        }
+      }
+    }
+  },
+  "optionalProperties": {
+    "player_to_move": {
+      "ref": "player"
+    }
+  }
+}
