@@ -1,5 +1,10 @@
 // MultiAgentPartiallyObservableMarkovDecisionProcess
-trait MaPomdp<ObservationSeq, Observation, State, Action, const N: usize> {
+pub trait MaPomdp<ObservationSeq, Observation, State, Action, const N: usize> {
+  /*type ObservationSeq;
+  type Observation;
+  type State;
+  type Action;*/
+
   fn start(&self) -> ObservationSeq;
 
   // samples a state from an agent's observation sequence
@@ -20,7 +25,7 @@ trait MaPomdp<ObservationSeq, Observation, State, Action, const N: usize> {
   fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation);
 }
 
-struct TranstitionResult<Observation, const N: usize> {
-  observations: [Observation; N],
-  rewards: [f32; N],
+pub struct TranstitionResult<Observation, const N: usize> {
+  pub observations: [Observation; N],
+  pub rewards: [f32; N],
 }
