@@ -1,0 +1,90 @@
+{
+  "definitions": {
+    "color": {
+      "enum": ["C1", "C2", "C3", "C4"]
+    },
+    "tile": {
+      "enum": ["T1", "T2", "T3", "T4", "T5", "T6"]
+    },
+    "user": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "board": {
+      "properties": {
+        "over": {
+          "type": "boolean"
+        },
+        "table": {
+          "elements": {
+            "elements": {
+              "ref": "color",
+              "nullable": true
+            }
+          }
+        },
+        "remaining_tiles": {
+          "properties": {
+            "color": {
+              "ref": "color"
+            },
+            "tiles": {
+              "elements": {
+                "ref": "tile"
+              }
+            }
+          }
+        },
+        "score": {
+          "properties": {
+            "color": {
+              "ref": "color"
+            },
+            "score": {
+              "type": "int8"
+            }
+          }
+        }
+      },
+      "optionalProperties": {
+        "color_to_move": {
+          "ref": "color"
+        }
+      }
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["WAITING_FOR_PLAYERS", "ONGOING", "ENDED"]
+    },
+    "players": {
+      "elements": {
+        "properties": {
+          "color": {
+            "ref": "color"
+          },
+          "user": {
+            "ref": "user"
+          },
+          "score": {
+            "type": "int8"
+          }
+        }
+      }
+    }
+  },
+  "optionalProperties": {
+    "board": {
+      "ref": "board"
+    }
+  }
+}

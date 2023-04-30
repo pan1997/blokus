@@ -1,4 +1,4 @@
-./jtd-codegen board_state.jtd.json --typescript-out .
-mv index.ts ../blokus-ui/src/board_state.ts
+./jtd-codegen game.jtd.json --typescript-out .
+mv index.ts ../blokus-ui/src/game.ts
 
-./jtd-codegen board_state.jtd.json --rust-out ../server/src/board_state/
+./jtd-codegen game.jtd.json --rust-out ../server/src/game/
