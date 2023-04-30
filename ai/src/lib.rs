@@ -1,7 +1,6 @@
 mod search;
 mod traits;
-pub use traits::pomdp::MaPomdp;
-pub use traits::pomdp::BlockMaPomdp;
+pub use traits::pomdp::{BlockMaPomdp, MaPomdp};
 
 #[cfg(test)]
 mod tests;

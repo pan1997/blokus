@@ -1,12 +1,11 @@
-mod utils;
 mod arena_forest;
 mod refcnt_forest;
+mod utils;
 use std::ops::DerefMut;
 
 pub use utils::{Bounds, RunningAverage};
 
-use crate::MaPomdp;
-use crate::BlockMaPomdp;
+use crate::{BlockMaPomdp, MaPomdp};
 
 struct Search {}
 
@@ -57,7 +56,16 @@ impl Search {
     result
   }
 
-  fn advance_block<M, State, Action, Observation, ObservationSeq, TNode, const N: usize, const B: usize>(
+  fn advance_block<
+    M,
+    State,
+    Action,
+    Observation,
+    ObservationSeq,
+    TNode,
+    const N: usize,
+    const B: usize,
+  >(
     &self,
     problem: M,
     states: &mut [State; B],
@@ -101,6 +109,10 @@ trait TreeNode<A, O>: Sized {
 }
 
 trait TreeNodePtr<TN> {
-  type Guard: DerefMut<Target = TN>;
-  fn lock(&self) -> Self::Guard;
+  type Guard<'a>: DerefMut<Target = TN> + 'a
+  where
+    Self: 'a;
+  fn lock<'a, 'b>(&'b self) -> Self::Guard<'a>
+  where
+    'b: 'a;
 }
