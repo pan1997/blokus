@@ -4,8 +4,9 @@ use std::{
   rc::Rc,
 };
 
-use super::{TreeNode, TreeNodePtr};
+use crate::search::{TreeNode, TreeNodePtr};
 use crate::search::RunningAverage;
+use crate::search::forest::ActionInfo;
 
 struct Node<A, O> {
   actions: BTreeMap<A, ActionInfo>,
@@ -15,13 +16,6 @@ struct Node<A, O> {
   select_count: u32,
 }
 
-struct ActionInfo {
-  action_reward: RunningAverage,
-  value_of_next_state: RunningAverage,
-  select_count: u32,
-  static_policy_score: f32,
-}
-
 impl<A, O> TreeNode<A, O> for Node<A, O>
 where
   A: Ord + 'static,
@@ -29,7 +23,12 @@ where
 {
   type TreeNodePtr = Rc<RefCell<Node<A, O>>>;
   fn add_action_sample(&mut self, action: &A, reward: f32) {
-    self.actions.get_mut(action).unwrap().action_reward.add_sample(reward, 1)
+    self
+      .actions
+      .get_mut(action)
+      .unwrap()
+      .action_reward
+      .add_sample(reward, 1)
   }
   fn expected_value(&self) -> f32 {
     self.value.value()

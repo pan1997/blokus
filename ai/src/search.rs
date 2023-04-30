@@ -1,5 +1,4 @@
-mod arena_forest;
-mod refcnt_forest;
+mod forest;
 mod utils;
 use std::ops::DerefMut;
 
