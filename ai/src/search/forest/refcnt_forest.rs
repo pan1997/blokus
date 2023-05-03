@@ -4,9 +4,7 @@ use std::{
   rc::Rc,
 };
 
-use crate::search::{TreeNode, TreeNodePtr};
-use crate::search::RunningAverage;
-use crate::search::forest::ActionInfo;
+use crate::search::{forest::ActionInfo, RunningAverage, TreeNode, TreeNodePtr};
 
 struct Node<A, O> {
   actions: BTreeMap<A, ActionInfo>,
@@ -42,6 +40,9 @@ where
   }
   fn select_count(&self) -> u32 {
     self.select_count
+  }
+  fn action_count(&self) -> u32 {
+    self.actions.len() as u32
   }
 }
 

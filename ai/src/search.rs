@@ -6,31 +6,48 @@ pub use utils::{Bounds, RunningAverage};
 
 use crate::{BlockMaPomdp, MaPomdp};
 
-struct Search {}
+struct Search<T> {
+  tree_policy: T,
+}
 
 //impl<M, ObservationSeq, Observation, State, Action, const N: usize> Search where M: MaPomdp<ObservationSeq, Observation, State, Action, N> {
-impl Search {
+impl<T> Search<T> {
   // selects a joint action for state
-  fn select<State, Action, O, TNode, const N: usize>(
+  // assumes that the state is non terminal
+  fn select_joint_action<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>(
     &self,
+    problem: &M,
     state: &State,
     // This needs to be mutable, because we want to increment select counts
     nodes: &[TNode::TreeNodePtr; N],
   ) -> [Action; N]
   where
-    TNode: TreeNode<Action, O>,
+    TNode: TreeNode<Action, Observation>,
+    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+    Action: Default, 
+    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, N>
   {
-    // let result = [; N]
-    // for ix in 0..N {
-    //  nodes[ix].increment_select_count(result[ix]);
-    //}
-    // return result
-    unimplemented!()
+    let mut result = [(); N].map(|_| Default::default());
+    for ix in 0..N {
+      let mut guard = nodes[ix].lock();
+      guard.increment_select_count(&result[ix]);
+
+      // we assume that the set of legal actions in all states sampled from
+      // an observation state are same
+      if guard.action_count() == 1 {
+        // simple optimisation for single legal action for agent
+        // todo: get this from the guard
+        result[ix] = problem.actions(state, ix).into_iter().next().unwrap();
+      } else {
+        result[ix] = self.tree_policy.select_action(problem, state, &guard, ix)
+      }
+    }
+    result
   }
 
   fn advance<M, State, Action, Observation, ObservationSeq, TNode, const N: usize>(
     &self,
-    problem: M,
+    problem: &M,
     state: &mut State,
     nodes: &mut [TNode::TreeNodePtr; N],
     accumulated_reward: &mut [f32; N],
@@ -66,7 +83,7 @@ impl Search {
     const B: usize,
   >(
     &self,
-    problem: M,
+    problem: &M,
     states: &mut [State; B],
     nodes: &[[TNode::TreeNodePtr; N]; B],
     accumulated_reward: &mut [[f32; N]; B],
@@ -98,6 +115,11 @@ impl Search {
 trait TreeNode<A, O>: Sized {
   // Default is the nil ptr
   type TreeNodePtr: Default + TreeNodePtr<Self>;
+  fn action_count(&self) -> u32;
+
+  // returns true if this node hasn't been visited before
+  // also marks the node visited so never returns true again
+  //fn first_visit(&mut self) -> bool;
 
   fn select_count(&self) -> u32;
   fn expected_value(&self) -> f32;
@@ -114,4 +136,12 @@ trait TreeNodePtr<TN> {
   fn lock<'a, 'b>(&'b self) -> Self::Guard<'a>
   where
     'b: 'a;
+}
+
+trait TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
+where
+  M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+  TNode: TreeNode<Action, Observation>,
+{
+  fn select_action(&self, problem: &M, state: &State, node: &TNode, agent: usize) -> Action;
 }
