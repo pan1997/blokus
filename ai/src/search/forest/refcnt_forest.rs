@@ -7,6 +7,7 @@ use std::{
 use crate::search::{forest::ActionInfo, RunningAverage, TreeNode, TreeNodePtr};
 
 struct Node<A, O> {
+  visited: bool,
   actions: BTreeMap<A, ActionInfo>,
   // index to children
   children: BTreeMap<O, Rc<RefCell<Node<A, O>>>>,
@@ -20,6 +21,14 @@ where
   O: Ord + 'static,
 {
   type TreeNodePtr = Rc<RefCell<Node<A, O>>>;
+  fn first_visit(&mut self) -> bool {
+    if self.visited {
+      self.visited = true;
+      true
+    } else {
+      false
+    }
+  }
   fn add_action_sample(&mut self, action: &A, reward: f32) {
     self
       .actions
@@ -41,8 +50,8 @@ where
   fn select_count(&self) -> u32 {
     self.select_count
   }
-  fn action_count(&self) -> u32 {
-    self.actions.len() as u32
+  fn actions(&self) -> &BTreeMap<A, ActionInfo> {
+    &self.actions
   }
 }
 
@@ -60,6 +69,7 @@ impl<A: 'static, O: 'static> TreeNodePtr<Node<A, O>> for Rc<RefCell<Node<A, O>>>
 impl<A, O> Default for Node<A, O> {
   fn default() -> Self {
     Node {
+      visited: false,
       actions: BTreeMap::new(),
       children: BTreeMap::new(),
       value: RunningAverage::new(),

@@ -3,7 +3,7 @@ use crate::search::RunningAverage;
 mod arena_forest;
 mod refcnt_forest;
 
-struct ActionInfo {
+pub(crate) struct ActionInfo {
   action_reward: RunningAverage,
   value_of_next_state: RunningAverage,
   select_count: u32,

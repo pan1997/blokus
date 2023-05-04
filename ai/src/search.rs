@@ -1,10 +1,11 @@
+mod bandits;
 mod forest;
 mod utils;
-use std::ops::DerefMut;
+use std::{collections::BTreeMap, ops::DerefMut};
 
 pub use utils::{Bounds, RunningAverage};
 
-use crate::{BlockMaPomdp, MaMdp, MaPomdp};
+use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
 
 struct Search<T> {
   tree_policy: T,
@@ -38,7 +39,7 @@ impl<T> Search<T> {
       // we assume that the set of legal actions in all states sampled from
       // an observation state are same
 
-      let action_count = guard.action_count();
+      let action_count = guard.actions().len();
       if action_count == 0 {
         return SelectResult::Terminal;
       } else if action_count == 1 {
@@ -129,7 +130,7 @@ impl<T> Search<T> {
     TNode: TreeNode<Action, Observation>,
     TNode::TreeNodePtr: Clone,
     State: Clone,
-    Action: Default
+    Action: Default,
   {
     let mut trajectory: Vec<[TNode::TreeNodePtr; N]> = vec![]; //Vec<[TNode::TreeNodePtr; N]>;
     let mut rewards = vec![];
@@ -142,7 +143,9 @@ impl<T> Search<T> {
           let transition_result = problem.transition(state, &joint_action);
           let mut next_node_ptrs = [(); N].map(|_| Default::default());
           for ix in 0..N {
-            next_node_ptrs[ix] = current_nodes[ix].lock().get_child(&transition_result.observations[ix]);
+            next_node_ptrs[ix] = current_nodes[ix]
+              .lock()
+              .get_child(&transition_result.observations[ix]);
             // todo accumulate rewards
           }
           rewards.push(transition_result.rewards);
@@ -156,7 +159,7 @@ impl<T> Search<T> {
 trait TreeNode<A, O>: Sized {
   // Default is the nil ptr
   type TreeNodePtr: Default + TreeNodePtr<Self>;
-  fn action_count(&self) -> u32;
+  fn actions(&self) -> &BTreeMap<A, ActionInfo>;
 
   // returns true if this node hasn't been visited before
   // also marks the node visited so never returns true again

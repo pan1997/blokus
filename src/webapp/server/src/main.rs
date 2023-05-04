@@ -1,4 +1,5 @@
-mod board_state;
+mod game;
+mod account;
 
 use axum::{
   http::{StatusCode, Uri},
