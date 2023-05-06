@@ -22,9 +22,14 @@ impl<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
 where
   M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
   TNode: TreeNode<Action, Observation>,
-  Action: Clone
+  Action: Clone,
 {
   fn select_action(&self, problem: &M, state: &State, node: &TNode, agent: usize) -> Action {
-    node.actions().keys().choose(&mut rand::thread_rng()).unwrap().clone()
+    node
+      .actions()
+      .keys()
+      .choose(&mut rand::thread_rng())
+      .unwrap()
+      .clone()
   }
 }
