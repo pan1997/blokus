@@ -6,7 +6,7 @@ use std::{
 
 use crate::search::{forest::ActionInfo, RunningAverage, TreeNode, TreeNodePtr};
 
-struct Node<A, O> {
+pub struct Node<A, O> {
   visited: bool,
   actions: BTreeMap<A, ActionInfo>,
   // index to children
@@ -18,11 +18,11 @@ struct Node<A, O> {
 impl<A, O> TreeNode<A, O> for Node<A, O>
 where
   A: Ord + 'static,
-  O: Ord + 'static,
+  O: Ord + 'static + Clone,
 {
   type TreeNodePtr = Rc<RefCell<Node<A, O>>>;
   fn first_visit(&mut self) -> bool {
-    if self.visited {
+    if !self.visited {
       self.visited = true;
       true
     } else {
@@ -41,7 +41,10 @@ where
     self.value.value()
   }
   fn get_child(&mut self, obs: &O) -> Self::TreeNodePtr {
-    self.children[obs].clone()
+    if !self.children.contains_key(obs) {
+      self.children.insert(obs.clone(), Default::default());
+    }
+    self.children[obs].clone() 
   }
   fn increment_select_count(&mut self, action: &A) {
     self.select_count += 1;
@@ -53,10 +56,15 @@ where
   fn actions(&self) -> &BTreeMap<A, ActionInfo> {
     &self.actions
   }
+
+  fn actions_mut(&mut self) -> &mut BTreeMap<A, ActionInfo> {
+    &mut self.actions
+  }
 }
 
 // TODO: relax this static
-impl<A: 'static, O: 'static> TreeNodePtr<Node<A, O>> for Rc<RefCell<Node<A, O>>> {
+impl<A: 'static + Ord, O: 'static + Ord + Clone> TreeNodePtr<A, O> for Rc<RefCell<Node<A, O>>> {
+  type TreeNode = Node<A, O>;
   type Guard<'a> = RefMut<'a, Node<A, O>>;
   fn lock<'a, 'b>(&'b self) -> Self::Guard<'a>
   where
@@ -75,5 +83,11 @@ impl<A, O> Default for Node<A, O> {
       value: RunningAverage::new(),
       select_count: 0,
     }
+  }
+}
+
+impl<A, O> Node<A, O> {
+  pub fn new() -> Rc<RefCell<Node<A, O>>> {
+    Default::default()
   }
 }

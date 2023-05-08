@@ -1,30 +1,35 @@
 mod bandits;
-mod forest;
+pub mod forest;
 mod utils;
 use std::{collections::BTreeMap, ops::DerefMut};
 
+pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
 
 use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
 
-struct Search<T> {
+pub struct Search<T> {
   tree_policy: T,
 }
 
 impl<T> Search<T> {
+  pub fn new(tree_policy: T) -> Self {
+    Search { tree_policy }
+  }
+
   // selects a joint action for state
-  fn select_joint_action<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>(
+  fn select_joint_action<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
     &self,
     problem: &M,
     state: &State,
     // This needs to be mutable, because we want to increment select counts
-    nodes: &[TNode::TreeNodePtr; N],
+    nodes: &[TNodePtr; N],
   ) -> SelectResult<[Action; N]>
   where
-    TNode: TreeNode<Action, Observation>,
+    TNodePtr: TreeNodePtr<Action, Observation>,
     M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
     Action: Default,
-    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, N>,
+    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNodePtr::TreeNode, N>,
   {
     let mut result = [(); N].map(|_| Default::default());
     for ix in 0..N {
@@ -54,31 +59,29 @@ impl<T> Search<T> {
     SelectResult::Action(result)
   }
 
-  fn advance<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>(
+  fn advance<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
     &self,
     problem: &M,
     state: &mut State,
-    nodes: &mut [TNode::TreeNodePtr; N],
-    accumulated_reward: &mut [f32; N],
-    joint_action: [Action; N],
-  ) -> [TNode::TreeNodePtr; N]
+    nodes: &[TNodePtr; N],
+    joint_action: &[Action; N],
+  ) -> ([TNodePtr; N], [f32; N])
   where
-    TNode: TreeNode<Action, Observation>,
+    TNodePtr: TreeNodePtr<Action, Observation> + Default,
     M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
   {
-    let transition_result = problem.transition(state, &joint_action);
+    let transition_result = problem.transition(state, joint_action);
 
     let mut result = [(); N].map(|_| Default::default());
     // add action rewards to the node
     // accumulate rewards for trajectory
     // get child pointers for each agent
     for ix in 0..N {
-      accumulated_reward[ix] += transition_result.rewards[ix];
       let mut guard = nodes[ix].lock();
       guard.add_action_sample(&joint_action[ix], transition_result.rewards[ix]);
       result[ix] = guard.get_child(&transition_result.observations[ix]);
     }
-    result
+    (result, transition_result.rewards)
   }
 
   fn advance_block<
@@ -87,19 +90,19 @@ impl<T> Search<T> {
     Observation,
     State,
     Action,
-    TNode,
+    TNodePtr,
     const N: usize,
     const B: usize,
   >(
     &self,
     problem: &M,
     states: &mut [State; B],
-    nodes: &[[TNode::TreeNodePtr; N]; B],
+    nodes: &[[TNodePtr; N]; B],
     accumulated_reward: &mut [[f32; N]; B],
     joint_actions: [[Action; N]; B],
-  ) -> [[TNode::TreeNodePtr; N]; B]
+  ) -> [[TNodePtr; N]; B]
   where
-    TNode: TreeNode<Action, Observation>,
+    TNodePtr: TreeNodePtr<Action, Observation> + Default,
     M: BlockMaPomdp<ObservationSeq, Observation, State, Action, N>,
   {
     let transition_result = problem.transition_block(states, &joint_actions);
@@ -119,36 +122,101 @@ impl<T> Search<T> {
     result
   }
 
-  fn step<M, Observation, State, Action, TNode, const N: usize>(
+  fn propogate<Observation, Action, TNodePtr, const N: usize>(
+    &self,
+    trajectory: &[[TNodePtr; N]],
+    actions: &[[Action; N]],
+    rewards: &[[f32; N]],
+    mut terminal_value: [f32; N],
+  ) -> [f32; N]
+  where
+    TNodePtr: TreeNodePtr<Action, Observation>,
+    Action: Ord,
+    Observation: Ord,
+  {
+    debug_assert!(trajectory.len() == actions.len() + 1);
+    debug_assert!(actions.len() == rewards.len());
+
+    let len = trajectory.len();
+    // TODO: update node value
+
+    // -2 because the last entry in trajectory doesn't have any actions or rewards
+    let mut depth = len.wrapping_sub(2);
+    while depth < actions.len() {
+      for ix in 0..N {
+        let mut guard = trajectory[depth][ix].lock();
+        // update reward
+        let ai = guard.actions_mut().get_mut(&actions[depth][ix]).unwrap();
+        ai.action_reward.add_sample(rewards[depth][ix], 1);
+        ai.value_of_next_state.add_sample(terminal_value[ix], 1);
+
+        // for next iter of depth
+        terminal_value[ix] += rewards[depth][ix];
+      }
+      depth = depth.wrapping_sub(1);
+    }
+    terminal_value
+  }
+
+  fn expand<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
+    &self,
+    problem: &M,
+    state: &State,
+    nodes: &[TNodePtr; N],
+  ) where
+    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+    TNodePtr: TreeNodePtr<Action, Observation>,
+    Action: Ord,
+    Observation: Ord,
+  {
+    for ix in 0..N {
+      let actions = problem.actions(state, ix);
+      debug_assert!(actions.len() != 0, "Empty actions");
+      let mut guard = nodes[ix].lock();
+      debug_assert!(guard.actions().len() == 0);
+      let mut am = guard.actions_mut();
+      for action in actions {
+        am.insert(action, ActionInfo::default());
+      }
+    }
+  }
+
+  pub fn step<M, Observation, State, Action, TNodePtr, const N: usize>(
     &self,
     problem: &M,
     state: &mut State,
-    mut current_nodes: &[TNode::TreeNodePtr; N],
-  ) where
+    mut current_nodes: [TNodePtr; N],
+  ) -> [f32; N]
+  where
     M: MaMdp<State, Action, Observation, N>,
-    T: TreePolicy<M, State, Observation, State, Action, TNode, N>,
-    TNode: TreeNode<Action, Observation>,
-    TNode::TreeNodePtr: Clone,
+    T: TreePolicy<M, State, Observation, State, Action, TNodePtr::TreeNode, N>,
+    TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
     State: Clone,
-    Action: Default,
+    Action: Default + Ord,
+    Observation: Ord,
   {
-    let mut trajectory: Vec<[TNode::TreeNodePtr; N]> = vec![]; //Vec<[TNode::TreeNodePtr; N]>;
+    let mut trajectory: Vec<[TNodePtr; N]> = vec![]; //Vec<[TNode::TreeNodePtr; N]>;
+    let mut actions = vec![];
     let mut rewards = vec![];
     loop {
-      trajectory.push(current_nodes.clone());
-      match self.select_joint_action(problem, state, current_nodes) {
-        SelectResult::Terminal => {}
-        SelectResult::Leaf => {}
+      match self.select_joint_action(problem, state, &current_nodes) {
+        SelectResult::Terminal => {
+          trajectory.push(current_nodes);
+          return self.propogate(&trajectory, &actions, &rewards, [0.0; N]);
+        }
+        SelectResult::Leaf => {
+          self.expand(problem, state, &current_nodes);
+          trajectory.push(current_nodes);
+          // TODO: find
+          let terminal_value = [0.0; N];
+          return self.propogate(&trajectory, &actions, &rewards, terminal_value);
+        }
         SelectResult::Action(joint_action) => {
-          let transition_result = problem.transition(state, &joint_action);
-          let mut next_node_ptrs = [(); N].map(|_| Default::default());
-          for ix in 0..N {
-            next_node_ptrs[ix] = current_nodes[ix]
-              .lock()
-              .get_child(&transition_result.observations[ix]);
-            // todo accumulate rewards
-          }
-          rewards.push(transition_result.rewards);
+          let (_nodes, _rewards) = self.advance(problem, state, &current_nodes, &joint_action);
+          actions.push(joint_action);
+          rewards.push(_rewards);
+          trajectory.push(current_nodes);
+          current_nodes = _nodes;
         }
       }
     }
@@ -156,10 +224,11 @@ impl<T> Search<T> {
 }
 
 // A node in the mcts search tree for a single agent
-trait TreeNode<A, O>: Sized {
+pub trait TreeNode<A, O>: Sized {
   // Default is the nil ptr
-  type TreeNodePtr: Default + TreeNodePtr<Self>;
+  type TreeNodePtr: Default;
   fn actions(&self) -> &BTreeMap<A, ActionInfo>;
+  fn actions_mut(&mut self) -> &mut BTreeMap<A, ActionInfo>;
 
   // returns true if this node hasn't been visited before
   // also marks the node visited so never returns true again
@@ -173,8 +242,9 @@ trait TreeNode<A, O>: Sized {
   fn get_child(&mut self, obs: &O) -> Self::TreeNodePtr;
 }
 
-trait TreeNodePtr<TN> {
-  type Guard<'a>: DerefMut<Target = TN> + 'a
+pub trait TreeNodePtr<A, O> {
+  type TreeNode: TreeNode<A, O, TreeNodePtr = Self>;
+  type Guard<'a>: DerefMut<Target = Self::TreeNode> + 'a
   where
     Self: 'a;
   fn lock<'a, 'b>(&'b self) -> Self::Guard<'a>
@@ -182,7 +252,7 @@ trait TreeNodePtr<TN> {
     'b: 'a;
 }
 
-trait TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
+pub trait TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
 where
   M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
   TNode: TreeNode<Action, Observation>,

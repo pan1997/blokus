@@ -3,7 +3,7 @@ use rand::seq::IteratorRandom;
 use super::{TreeNode, TreePolicy};
 use crate::MaPomdp;
 
-struct Uct(f32);
+pub struct Uct(f32);
 
 impl<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
   TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, N> for Uct
@@ -16,7 +16,7 @@ where
   }
 }
 
-struct Random;
+pub struct Random;
 impl<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
   TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, N> for Random
 where
