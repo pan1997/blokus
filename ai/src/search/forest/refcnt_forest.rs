@@ -10,7 +10,7 @@ pub struct Node<A, O> {
   visited: bool,
   actions: BTreeMap<A, ActionInfo>,
   // index to children
-  children: BTreeMap<O, Rc<RefCell<Node<A, O>>>>,
+  children: BTreeMap<O, Rc<RefCell<Self>>>,
   value: RunningAverage,
   select_count: u32,
 }
@@ -20,7 +20,7 @@ where
   A: Ord + 'static,
   O: Ord + 'static + Clone,
 {
-  type TreeNodePtr = Rc<RefCell<Node<A, O>>>;
+  type TreeNodePtr = Rc<RefCell<Self>>;
   fn first_visit(&mut self) -> bool {
     if !self.visited {
       self.visited = true;
@@ -44,7 +44,7 @@ where
     if !self.children.contains_key(obs) {
       self.children.insert(obs.clone(), Default::default());
     }
-    self.children[obs].clone() 
+    self.children[obs].clone()
   }
   fn increment_select_count(&mut self, action: &A) {
     self.select_count += 1;
