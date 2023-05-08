@@ -171,11 +171,11 @@ fn problem1() -> StaticMdp {
 fn t1() {
   let p1 = problem1();
   let s = Search::new(Random);
+  let state = 0;
   let trees = [Node::new(); 1];
-  for iter in 0..10 {
+  for iter in 0..100 {
     let n = [trees[0].clone(); 1];
-    let mut state = 0;
-    let x = s.step(&p1, &mut state, n);
-    println!("{iter}: rewards: {x:?}, terminal_state: {state}");
+    let x = s.step_mdp(&p1, &state, n);
+    println!("{iter}: rewards: {x:?}");
   }
 }

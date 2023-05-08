@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, ops::DerefMut};
 pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
 
-use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
+use crate::{search::forest::ActionInfo, tzf8::Observation, BlockMaPomdp, MaMdp, MaPomdp};
 
 pub struct Search<T> {
   tree_policy: T,
@@ -181,15 +181,15 @@ impl<T> Search<T> {
     }
   }
 
-  pub fn step<M, Observation, State, Action, TNodePtr, const N: usize>(
+  fn step_internal<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
     &self,
     problem: &M,
     state: &mut State,
     mut current_nodes: [TNodePtr; N],
   ) -> [f32; N]
   where
-    M: MaMdp<State, Action, Observation, N>,
-    T: TreePolicy<M, State, Observation, State, Action, TNodePtr::TreeNode, N>,
+    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNodePtr::TreeNode, N>,
     TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
     State: Clone,
     Action: Default + Ord,
@@ -220,6 +220,41 @@ impl<T> Search<T> {
         }
       }
     }
+  }
+
+  pub fn step_mdp<M, Observation, State, Action, TNodePtr, const N: usize>(
+    &self,
+    problem: &M,
+    state: &State,
+    mut current_nodes: [TNodePtr; N],
+  ) -> [f32; N]
+  where
+    M: MaMdp<State, Action, Observation, N>,
+    T: TreePolicy<M, State, Observation, State, Action, TNodePtr::TreeNode, N>,
+    TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
+    State: Clone,
+    Action: Default + Ord,
+    Observation: Ord,
+  {
+    self.step_internal(problem, &mut state.clone(), current_nodes)
+  }
+
+  pub fn step_single_agent<M, ObservationSeq, Observation, State, Action, TNodePtr>(
+    &self,
+    problem: &M,
+    obs_seq: &ObservationSeq,
+    mut current_nodes: [TNodePtr; 1],
+  ) -> [f32; 1]
+  where
+    M: MaPomdp<ObservationSeq, Observation, State, Action, 1>,
+    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNodePtr::TreeNode, 1>,
+    TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
+    State: Clone,
+    Action: Default + Ord,
+    Observation: Ord,
+  {
+    let mut m = problem.sample(obs_seq, 0);
+    self.step_internal(problem, &mut m, current_nodes)
   }
 }
 

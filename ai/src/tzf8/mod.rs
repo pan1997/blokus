@@ -292,5 +292,4 @@ mod tests {
     compress(&mut row);
     println!("{:?}", row);
   }
-
 }
