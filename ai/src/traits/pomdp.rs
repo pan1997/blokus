@@ -8,6 +8,16 @@ pub trait MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, const N
   fn start(&self) -> ObservationSeq;
 
   // samples a state from an agent's observation sequence
+  // SampleKey is the hash of the ObservationSeq. It's used to find the search tree
+  // corresponding to the observation seq for agents. Each player
+  // gets one key, but the sample key corresponding to the agent in
+  // argument is supposed to be unique for all samples, while the
+  // key can vary based on the sampled state for other agents.
+  //
+  // For example, in a game of poker, the sample key for each agent
+  // can be the value of hidden cards known to that player. This allows
+  // for a better opponent model, as the opponents can play optimally
+  // based on the "correct" amount of information known to them
   fn sample(
     &self,
     observation_seq: &ObservationSeq,
