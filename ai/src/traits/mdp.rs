@@ -1,4 +1,4 @@
-use super::pomdp::TranstitionResult;
+use super::pomdp::{SampleResult, TranstitionResult};
 use crate::MaPomdp;
 
 // fully observable
@@ -12,8 +12,8 @@ pub trait MaMdp<State, Action, Observation, const N: usize> {
   ) -> TranstitionResult<Observation, N>;
 }
 
-impl<M, State, Action, Observation, const N: usize> MaPomdp<State, Observation, State, Action, N>
-  for M
+impl<M, State, Action, Observation, const N: usize>
+  MaPomdp<State, (), Observation, State, Action, N> for M
 where
   M: MaMdp<State, Action, Observation, N>,
   State: Clone,
@@ -26,8 +26,11 @@ where
     self.start()
   }
 
-  fn sample(&self, observation_seq: &State, agent: usize) -> State {
-    observation_seq.clone()
+  fn sample(&self, observation_seq: &State, agent: usize) -> SampleResult<State, (), N> {
+    SampleResult {
+      state: observation_seq.clone(),
+      sample_keys: [(); N],
+    }
   }
 
   fn transition(

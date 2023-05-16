@@ -5,10 +5,10 @@ use crate::MaPomdp;
 
 pub struct Uct(f32);
 
-impl<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
-  TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, N> for Uct
+impl<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, const N: usize>
+  TreePolicy<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, N> for Uct
 where
-  M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+  M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
   TNode: TreeNode<Action, Observation>,
 {
   fn select_action(&self, problem: &M, state: &State, node: &TNode, agent: usize) -> Action {
@@ -17,10 +17,10 @@ where
 }
 
 pub struct Random;
-impl<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
-  TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, N> for Random
+impl<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, const N: usize>
+  TreePolicy<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, N> for Random
 where
-  M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+  M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
   TNode: TreeNode<Action, Observation>,
   Action: Clone,
 {

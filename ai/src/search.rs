@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, ops::DerefMut};
 pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
 
-use crate::{search::forest::ActionInfo, tzf8::Observation, BlockMaPomdp, MaMdp, MaPomdp};
+use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
 
 pub struct Search<T> {
   tree_policy: T,
@@ -18,7 +18,16 @@ impl<T> Search<T> {
   }
 
   // selects a joint action for state
-  fn select_joint_action<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
+  fn select_joint_action<
+    M,
+    ObservationSeq,
+    SampleKey,
+    Observation,
+    State,
+    Action,
+    TNodePtr,
+    const N: usize,
+  >(
     &self,
     problem: &M,
     state: &State,
@@ -27,9 +36,9 @@ impl<T> Search<T> {
   ) -> SelectResult<[Action; N]>
   where
     TNodePtr: TreeNodePtr<Action, Observation>,
-    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+    M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
     Action: Default,
-    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNodePtr::TreeNode, N>,
+    T: TreePolicy<M, ObservationSeq, SampleKey, Observation, State, Action, TNodePtr::TreeNode, N>,
   {
     let mut result = [(); N].map(|_| Default::default());
     for ix in 0..N {
@@ -59,7 +68,7 @@ impl<T> Search<T> {
     SelectResult::Action(result)
   }
 
-  fn advance<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
+  fn advance<M, ObservationSeq, SampleKey, Observation, State, Action, TNodePtr, const N: usize>(
     &self,
     problem: &M,
     state: &mut State,
@@ -68,7 +77,7 @@ impl<T> Search<T> {
   ) -> ([TNodePtr; N], [f32; N])
   where
     TNodePtr: TreeNodePtr<Action, Observation> + Default,
-    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+    M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
   {
     let transition_result = problem.transition(state, joint_action);
 
@@ -87,6 +96,7 @@ impl<T> Search<T> {
   fn advance_block<
     M,
     ObservationSeq,
+    SampleKey,
     Observation,
     State,
     Action,
@@ -103,7 +113,7 @@ impl<T> Search<T> {
   ) -> [[TNodePtr; N]; B]
   where
     TNodePtr: TreeNodePtr<Action, Observation> + Default,
-    M: BlockMaPomdp<ObservationSeq, Observation, State, Action, N>,
+    M: BlockMaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
   {
     let transition_result = problem.transition_block(states, &joint_actions);
 
@@ -158,13 +168,13 @@ impl<T> Search<T> {
     terminal_value
   }
 
-  fn expand<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
+  fn expand<M, ObservationSeq, SampleKey, Observation, State, Action, TNodePtr, const N: usize>(
     &self,
     problem: &M,
     state: &State,
     nodes: &[TNodePtr; N],
   ) where
-    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+    M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
     TNodePtr: TreeNodePtr<Action, Observation>,
     Action: Ord,
     Observation: Ord,
@@ -181,15 +191,24 @@ impl<T> Search<T> {
     }
   }
 
-  fn step_internal<M, ObservationSeq, Observation, State, Action, TNodePtr, const N: usize>(
+  fn step_internal<
+    M,
+    ObservationSeq,
+    SampleKey,
+    Observation,
+    State,
+    Action,
+    TNodePtr,
+    const N: usize,
+  >(
     &self,
     problem: &M,
     state: &mut State,
     mut current_nodes: [TNodePtr; N],
   ) -> [f32; N]
   where
-    M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
-    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNodePtr::TreeNode, N>,
+    M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
+    T: TreePolicy<M, ObservationSeq, SampleKey, Observation, State, Action, TNodePtr::TreeNode, N>,
     TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
     State: Clone,
     Action: Default + Ord,
@@ -230,7 +249,7 @@ impl<T> Search<T> {
   ) -> [f32; N]
   where
     M: MaMdp<State, Action, Observation, N>,
-    T: TreePolicy<M, State, Observation, State, Action, TNodePtr::TreeNode, N>,
+    T: TreePolicy<M, State, (), Observation, State, Action, TNodePtr::TreeNode, N>,
     TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
     State: Clone,
     Action: Default + Ord,
@@ -246,15 +265,15 @@ impl<T> Search<T> {
     mut current_nodes: [TNodePtr; 1],
   ) -> [f32; 1]
   where
-    M: MaPomdp<ObservationSeq, Observation, State, Action, 1>,
-    T: TreePolicy<M, ObservationSeq, Observation, State, Action, TNodePtr::TreeNode, 1>,
+    M: MaPomdp<ObservationSeq, (), Observation, State, Action, 1>,
+    T: TreePolicy<M, ObservationSeq, (), Observation, State, Action, TNodePtr::TreeNode, 1>,
     TNodePtr: TreeNodePtr<Action, Observation> + Clone + Default,
     State: Clone,
     Action: Default + Ord,
     Observation: Ord,
   {
     let mut m = problem.sample(obs_seq, 0);
-    self.step_internal(problem, &mut m, current_nodes)
+    self.step_internal(problem, &mut m.state, current_nodes)
   }
 }
 
@@ -287,9 +306,17 @@ pub trait TreeNodePtr<A, O> {
     'b: 'a;
 }
 
-pub trait TreePolicy<M, ObservationSeq, Observation, State, Action, TNode, const N: usize>
-where
-  M: MaPomdp<ObservationSeq, Observation, State, Action, N>,
+pub trait TreePolicy<
+  M,
+  ObservationSeq,
+  SampleKey,
+  Observation,
+  State,
+  Action,
+  TNode,
+  const N: usize,
+> where
+  M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
   TNode: TreeNode<Action, Observation>,
 {
   fn select_action(&self, problem: &M, state: &State, node: &TNode, agent: usize) -> Action;

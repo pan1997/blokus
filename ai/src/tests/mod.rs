@@ -4,7 +4,7 @@ use rand::{distributions::WeightedIndex, prelude::*};
 
 use crate::{
   search::{forest::refcnt_forest::Node, Random, Search},
-  traits::pomdp::TranstitionResult,
+  traits::pomdp::{SampleResult, TranstitionResult},
   MaMdp, MaPomdp,
 };
 
@@ -30,7 +30,7 @@ struct StaticMpomdp {
   states: Vec<StateDef>,
 }
 
-impl MaPomdp<ObservationSeq, Observation, State, Action, 1> for StaticMpomdp {
+impl MaPomdp<ObservationSeq, (), Observation, State, Action, 1> for StaticMpomdp {
   fn actions(&self, state: &State, agent: usize) -> Vec<Action> {
     self.states[*state].outgoing.keys().map(|x| *x).collect()
   }
@@ -42,9 +42,12 @@ impl MaPomdp<ObservationSeq, Observation, State, Action, 1> for StaticMpomdp {
     unimplemented!()
   }
 
-  fn sample(&self, observation_seq: &ObservationSeq, agent: usize) -> State {
+  fn sample(&self, observation_seq: &ObservationSeq, agent: usize) -> SampleResult<State, (), 1> {
     let dist = WeightedIndex::new(observation_seq).unwrap();
-    dist.sample(&mut rand::thread_rng())
+    SampleResult {
+      state: dist.sample(&mut rand::thread_rng()),
+      sample_keys: [()],
+    }
   }
 
   fn start(&self) -> ObservationSeq {
