@@ -240,7 +240,7 @@ impl Display for Move {
 
 impl Default for Move {
   fn default() -> Self {
-      Move::Left
+    Move::Left
   }
 }
 
@@ -287,11 +287,11 @@ impl Debug for State {
 mod tests {
   use std::fs::File;
 
-use crate::search::forest::refcnt_forest::Node;
-use crate::search::{Search, TreeNode, render::save};
   use crate::search::bandits::Random;
+  use crate::search::forest::refcnt_forest::Node;
+  use crate::search::{render::save, Search, TreeNode};
 
-use super::*;
+  use super::*;
 
   #[test]
   fn test_compress() {
@@ -307,10 +307,10 @@ use super::*;
 
   #[test]
   fn t1() {
-    let game= Tzf8;
+    let game = Tzf8;
     let state = game.initial_state();
     let search = Search {
-      tree_policy: Random
+      tree_policy: Random,
     };
     let root = Node::new();
     for _ in 0..100 {

@@ -11,14 +11,16 @@ use graphviz_rust::{
 use super::TreeNode;
 use super::TreeNodePtr;
 
-
 fn render<NodePtr, A: Ord + Display, O: Ord + Display>(
   node: &NodePtr,
   g: &mut Graph,
   theta: u32,
   depth: u32,
   count: &mut u32,
-) -> GNid where NodePtr: TreeNodePtr<A, O> {
+) -> GNid
+where
+  NodePtr: TreeNodePtr<A, O>,
+{
   let node_id = *count;
   *count += 1;
   let leaf = depth == 0 || node.lock().select_count() <= theta;
@@ -56,10 +58,13 @@ fn render<NodePtr, A: Ord + Display, O: Ord + Display>(
 }
 
 pub fn render_forest<NodePtr, A: Ord + Display, O: Ord + Display, const N: usize>(
-  nodes: [NodePtr; N],  
+  nodes: [NodePtr; N],
   theta: u32,
   depth: u32,
-) -> Graph where NodePtr: TreeNodePtr<A, O> {
+) -> Graph
+where
+  NodePtr: TreeNodePtr<A, O>,
+{
   let mut g = Graph::DiGraph {
     id: Id::Plain("".to_string()),
     strict: false,
@@ -77,13 +82,18 @@ pub fn save<NodePtr, A: Ord + Display, O: Ord + Display, const N: usize>(
   mut f: File,
   theta: u32,
   depth: u32,
-) where NodePtr: TreeNodePtr<A, O> {
+) where
+  NodePtr: TreeNodePtr<A, O>,
+{
   let g = render_forest(nodes, theta, depth);
   let mut ctx = PrinterContext::default();
   write!(f, "{}", g.print(&mut ctx)).unwrap();
 }
 
-fn node_format<Node, A: Ord + Display, O: Ord + Display>(node: &Node, leaf: bool) -> String where Node: TreeNode<A, O> {
+fn node_format<Node, A: Ord + Display, O: Ord + Display>(node: &Node, leaf: bool) -> String
+where
+  Node: TreeNode<A, O>,
+{
   let children = node.children();
   let out_row = if leaf || children.is_empty() {
     "".to_string()
@@ -104,7 +114,11 @@ fn node_format<Node, A: Ord + Display, O: Ord + Display>(node: &Node, leaf: bool
     for (a, data) in node.actions().iter() {
       let ac = data.select_count;
       let ss = data.static_policy_score;
-      result.push_str(&format!("<td>{a}<BR/>{ss:.3}<BR/>{ac}</td>"));
+      let rw = data.action_reward.value();
+      let rn = data.value_of_next_state.value();
+      result.push_str(&format!(
+        "<td>{a}<BR/>{ss:.3}<BR/>{ac}<BR/>{rw:.3}<BR/>{rn:.3}</td>"
+      ));
     }
     result.push_str("</tr></table>");
     result
@@ -120,7 +134,6 @@ fn node_format<Node, A: Ord + Display, O: Ord + Display>(node: &Node, leaf: bool
     >"#,
     node.select_count(),
     node.expected_value(),
-    0
-    //node.sample_count(),
+    0 //node.sample_count(),
   )
 }

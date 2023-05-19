@@ -48,7 +48,8 @@ where
   }
   fn increment_select_count(&mut self, action: &A) {
     self.select_count += 1;
-    self.actions.get_mut(action).map(|a| a.select_count += 1);
+    //self.actions.get_mut(action).map(|a| a.select_count += 1);
+    self.actions.get_mut(action).unwrap().select_count += 1;
   }
   fn select_count(&self) -> u32 {
     self.select_count
@@ -62,7 +63,7 @@ where
   }
 
   fn children(&self) -> &BTreeMap<O, Self::TreeNodePtr> {
-      &self.children
+    &self.children
   }
 }
 

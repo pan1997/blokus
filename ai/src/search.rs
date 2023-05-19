@@ -1,8 +1,8 @@
 pub mod bandits;
 pub mod forest;
-mod utils;
 pub mod render;
-use std::{collections::BTreeMap, ops::DerefMut, fmt::Debug};
+mod utils;
+use std::{collections::BTreeMap, fmt::Debug, ops::DerefMut};
 
 pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
@@ -44,8 +44,6 @@ impl<T> Search<T> {
     let mut result = [(); N].map(|_| Default::default());
     for ix in 0..N {
       let mut guard = nodes[ix].lock();
-      guard.increment_select_count(&result[ix]);
-
       if guard.first_visit() {
         // This node has never been visisted, so don't select an action
         return SelectResult::Leaf;
@@ -53,9 +51,10 @@ impl<T> Search<T> {
 
       // we assume that the set of legal actions in all states sampled from
       // an observation state are same
-
       let action_count = guard.actions().len();
       if action_count == 0 {
+        // This node has been expanded (first_visit was false), and still has
+        // no legal moves
         return SelectResult::Terminal;
       } else if action_count == 1 {
         // simple optimisation for single legal action for agent
@@ -64,6 +63,7 @@ impl<T> Search<T> {
       } else {
         result[ix] = self.tree_policy.select_action(problem, state, &guard, ix)
       }
+      guard.increment_select_count(&result[ix]);
     }
     // Each node has at least one action, and all nodes have been visited at least once before
     SelectResult::Action(result)
@@ -186,7 +186,7 @@ impl<T> Search<T> {
       // when we find a leaf
       // debug_assert!(actions.len() != 0, "Empty actions");
       let mut guard = nodes[ix].lock();
-      // This should be empty, as we need to ensure that this node has never 
+      // This should be empty, as we need to ensure that this node has never
       // been expanded before
       debug_assert!(guard.actions().len() == 0);
       let am = guard.actions_mut();

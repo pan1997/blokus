@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fs::File};
 use rand::{distributions::WeightedIndex, prelude::*};
 
 use crate::{
-  search::{forest::refcnt_forest::Node, Random, Search, render::save},
+  search::{forest::refcnt_forest::Node, render::save, Random, Search},
   traits::pomdp::{SampleResult, TranstitionResult},
   MaMdp, MaPomdp,
 };
