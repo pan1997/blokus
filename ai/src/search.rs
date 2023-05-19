@@ -149,10 +149,14 @@ impl<T> Search<T> {
     debug_assert!(actions.len() == rewards.len());
 
     let len = trajectory.len();
-    // TODO: update node value
+    for ix in 0..N {
+      trajectory[len - 1][ix].lock().value_mut().add_sample(terminal_value[ix], 1);
+    }
 
     // -2 because the last entry in trajectory doesn't have any actions or rewards
     let mut depth = len.wrapping_sub(2);
+
+    // depth is unsigned, so we are done after we process 0 and depth wraps around
     while depth < actions.len() {
       for ix in 0..N {
         let mut guard = trajectory[depth][ix].lock();
@@ -163,6 +167,8 @@ impl<T> Search<T> {
 
         // for next iter of depth
         terminal_value[ix] += rewards[depth][ix];
+        // This node's value should include this action's reward
+        guard.value_mut().add_sample(terminal_value[ix], 1);
       }
       depth = depth.wrapping_sub(1);
     }
@@ -298,7 +304,8 @@ pub trait TreeNode<A, O>: Sized {
   fn first_visit(&mut self) -> bool;
 
   fn select_count(&self) -> u32;
-  fn expected_value(&self) -> f32;
+  fn value(&self) -> &RunningAverage;
+  fn value_mut(&mut self) -> &mut RunningAverage;
 
   fn increment_select_count(&mut self, action: &A);
   fn add_action_sample(&mut self, action: &A, reward: f32);

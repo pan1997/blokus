@@ -37,9 +37,7 @@ where
       .action_reward
       .add_sample(reward, 1)
   }
-  fn expected_value(&self) -> f32 {
-    self.value.value()
-  }
+  
   fn get_child(&mut self, obs: &O) -> Self::TreeNodePtr {
     if !self.children.contains_key(obs) {
       self.children.insert(obs.clone(), Default::default());
@@ -64,6 +62,12 @@ where
 
   fn children(&self) -> &BTreeMap<O, Self::TreeNodePtr> {
     &self.children
+  }
+  fn value(&self) -> &RunningAverage {
+      &self.value
+  }
+  fn value_mut(&mut self) -> &mut RunningAverage {
+      &mut self.value
   }
 }
 

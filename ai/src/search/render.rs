@@ -133,7 +133,7 @@ where
 </table>
     >"#,
     node.select_count(),
-    node.expected_value(),
+    node.value().value(),
     0 //node.sample_count(),
   )
 }
