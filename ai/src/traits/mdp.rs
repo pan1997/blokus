@@ -3,7 +3,7 @@ use crate::MaPomdp;
 
 // fully observable
 pub trait MaMdp<State, Action, Observation, const N: usize> {
-  fn start(&self) -> State;
+  fn initial_state(&self) -> State;
   fn actions(&self, state: &State, agent: usize) -> Vec<Action>;
   fn transition(
     &self,
@@ -23,7 +23,7 @@ where
   }
 
   fn start(&self) -> State {
-    self.start()
+    self.initial_state()
   }
 
   fn sample(&self, observation_seq: &State, agent: usize) -> SampleResult<State, (), N> {

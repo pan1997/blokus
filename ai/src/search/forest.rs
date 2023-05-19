@@ -6,8 +6,8 @@ pub mod refcnt_forest;
 pub struct ActionInfo {
   pub action_reward: RunningAverage,
   pub value_of_next_state: RunningAverage,
-  select_count: u32,
-  static_policy_score: f32,
+  pub select_count: u32,
+  pub static_policy_score: f32,
 }
 
 impl Default for ActionInfo {

@@ -1,7 +1,8 @@
-mod bandits;
+pub mod bandits;
 pub mod forest;
 mod utils;
-use std::{collections::BTreeMap, ops::DerefMut};
+pub mod render;
+use std::{collections::BTreeMap, ops::DerefMut, fmt::Debug};
 
 pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
@@ -9,7 +10,7 @@ pub use utils::{Bounds, RunningAverage};
 use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
 
 pub struct Search<T> {
-  tree_policy: T,
+  pub tree_policy: T,
 }
 
 impl<T> Search<T> {
@@ -181,10 +182,14 @@ impl<T> Search<T> {
   {
     for ix in 0..N {
       let actions = problem.actions(state, ix);
-      debug_assert!(actions.len() != 0, "Empty actions");
+      // actions returned here can be empty. We don't check for state termination
+      // when we find a leaf
+      // debug_assert!(actions.len() != 0, "Empty actions");
       let mut guard = nodes[ix].lock();
+      // This should be empty, as we need to ensure that this node has never 
+      // been expanded before
       debug_assert!(guard.actions().len() == 0);
-      let mut am = guard.actions_mut();
+      let am = guard.actions_mut();
       for action in actions {
         am.insert(action, ActionInfo::default());
       }
@@ -220,10 +225,12 @@ impl<T> Search<T> {
     loop {
       match self.select_joint_action(problem, state, &current_nodes) {
         SelectResult::Terminal => {
+          println!("Terminal");
           trajectory.push(current_nodes);
           return self.propogate(&trajectory, &actions, &rewards, [0.0; N]);
         }
         SelectResult::Leaf => {
+          println!("Leaf");
           self.expand(problem, state, &current_nodes);
           trajectory.push(current_nodes);
           // TODO: find
@@ -231,6 +238,7 @@ impl<T> Search<T> {
           return self.propogate(&trajectory, &actions, &rewards, terminal_value);
         }
         SelectResult::Action(joint_action) => {
+          println!("Advancing");
           let (_nodes, _rewards) = self.advance(problem, state, &current_nodes, &joint_action);
           actions.push(joint_action);
           rewards.push(_rewards);
@@ -282,6 +290,7 @@ pub trait TreeNode<A, O>: Sized {
   // Default is the nil ptr
   type TreeNodePtr: Default;
   fn actions(&self) -> &BTreeMap<A, ActionInfo>;
+  fn children(&self) -> &BTreeMap<O, Self::TreeNodePtr>;
   fn actions_mut(&mut self) -> &mut BTreeMap<A, ActionInfo>;
 
   // returns true if this node hasn't been visited before

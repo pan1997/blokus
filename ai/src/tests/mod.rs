@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs::File};
 
 use rand::{distributions::WeightedIndex, prelude::*};
 
 use crate::{
-  search::{forest::refcnt_forest::Node, Random, Search},
+  search::{forest::refcnt_forest::Node, Random, Search, render::save},
   traits::pomdp::{SampleResult, TranstitionResult},
   MaMdp, MaPomdp,
 };
@@ -31,18 +31,19 @@ struct StaticMpomdp {
 }
 
 impl MaPomdp<ObservationSeq, (), Observation, State, Action, 1> for StaticMpomdp {
-  fn actions(&self, state: &State, agent: usize) -> Vec<Action> {
+  fn actions(&self, state: &State, _agent: usize) -> Vec<Action> {
+    assert_eq!(_agent, 0, "Invalid Agent: {_agent}");
     self.states[*state].outgoing.keys().map(|x| *x).collect()
   }
 
   // obs contains all the details that can be known to the agent, including the action taken
-  fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation) {
+  fn append(&self, _observation_seq: &mut ObservationSeq, agent: usize, _obs: Observation) {
     assert_eq!(agent, 0, "Invalid Agent: {agent}");
     //observation_seq.append(obs)
     unimplemented!()
   }
 
-  fn sample(&self, observation_seq: &ObservationSeq, agent: usize) -> SampleResult<State, (), 1> {
+  fn sample(&self, observation_seq: &ObservationSeq, _agent: usize) -> SampleResult<State, (), 1> {
     let dist = WeightedIndex::new(observation_seq).unwrap();
     SampleResult {
       state: dist.sample(&mut rand::thread_rng()),
@@ -121,10 +122,11 @@ impl StaticMdp {
 }
 
 impl MaMdp<State, Action, Observation, 1> for StaticMdp {
-  fn actions(&self, state: &State, agent: usize) -> Vec<Action> {
+  fn actions(&self, state: &State, _agent: usize) -> Vec<Action> {
+    debug_assert!(_agent == 0, "Invalid agent: {_agent}");
     self.states[*state].outgoing.keys().map(|x| *x).collect()
   }
-  fn start(&self) -> State {
+  fn initial_state(&self) -> State {
     self.start
   }
   fn transition(
@@ -181,4 +183,5 @@ fn t1() {
     let x = s.step_mdp(&p1, &state, n);
     println!("{iter}: rewards: {x:?}");
   }
+  save(trees, File::create("test.t1.dot").unwrap(), 0, 100)
 }

@@ -45,7 +45,7 @@ impl MaMdp<State, Move, Observation, 1> for Tzf8 {
       vec![]
     }
   }
-  fn start(&self) -> State {
+  fn initial_state(&self) -> State {
     let mut result = State::new();
     result.add_random_tile();
     result.add_random_tile();
@@ -238,6 +238,12 @@ impl Display for Move {
   }
 }
 
+impl Default for Move {
+  fn default() -> Self {
+      Move::Left
+  }
+}
+
 impl Display for Observation {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
@@ -279,7 +285,13 @@ impl Debug for State {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+  use std::fs::File;
+
+use crate::search::forest::refcnt_forest::Node;
+use crate::search::{Search, TreeNode, render::save};
+  use crate::search::bandits::Random;
+
+use super::*;
 
   #[test]
   fn test_compress() {
@@ -291,5 +303,19 @@ mod tests {
     println!("{:?}", row);
     compress(&mut row);
     println!("{:?}", row);
+  }
+
+  #[test]
+  fn t1() {
+    let game= Tzf8;
+    let state = game.initial_state();
+    let search = Search {
+      tree_policy: Random
+    };
+    let root = Node::new();
+    for _ in 0..100 {
+      search.step_mdp(&game, &state, [root.clone()]);
+    }
+    save([root], File::create("tzf8.t1.dot").unwrap(), 0, 200);
   }
 }

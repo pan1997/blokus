@@ -60,6 +60,10 @@ where
   fn actions_mut(&mut self) -> &mut BTreeMap<A, ActionInfo> {
     &mut self.actions
   }
+
+  fn children(&self) -> &BTreeMap<O, Self::TreeNodePtr> {
+      &self.children
+  }
 }
 
 // TODO: relax this static
