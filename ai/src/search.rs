@@ -109,7 +109,6 @@ impl<T> Search<T> {
     problem: &M,
     states: &mut [State; B],
     nodes: &[[TNodePtr; N]; B],
-    accumulated_reward: &mut [[f32; N]; B],
     joint_actions: [[Action; N]; B],
   ) -> [[TNodePtr; N]; B]
   where
@@ -124,7 +123,6 @@ impl<T> Search<T> {
     // get child pointers for each agent
     for b in 0..B {
       for ix in 0..N {
-        accumulated_reward[b][ix] += transition_result[b].rewards[ix];
         let mut guard = nodes[b][ix].lock();
         guard.add_action_sample(&joint_actions[b][ix], transition_result[b].rewards[ix]);
         result[b][ix] = guard.get_child(&transition_result[b].observations[ix]);
@@ -150,7 +148,10 @@ impl<T> Search<T> {
 
     let len = trajectory.len();
     for ix in 0..N {
-      trajectory[len - 1][ix].lock().value_mut().add_sample(terminal_value[ix], 1);
+      trajectory[len - 1][ix]
+        .lock()
+        .value_mut()
+        .add_sample(terminal_value[ix], 1);
     }
 
     // -2 because the last entry in trajectory doesn't have any actions or rewards
@@ -188,6 +189,9 @@ impl<T> Search<T> {
   {
     for ix in 0..N {
       let actions = problem.actions(state, ix);
+      // TODO: static policy
+      // TODO: rollout/eval
+
       // actions returned here can be empty. We don't check for state termination
       // when we find a leaf
       // debug_assert!(actions.len() != 0, "Empty actions");

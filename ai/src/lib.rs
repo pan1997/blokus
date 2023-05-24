@@ -6,5 +6,8 @@ pub use traits::{
   pomdp::{BlockMaPomdp, MaPomdp},
 };
 
+mod blokus;
+mod connection;
+
 #[cfg(test)]
 mod tests;

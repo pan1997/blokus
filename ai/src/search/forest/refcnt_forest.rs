@@ -1,5 +1,5 @@
 use std::{
-  cell::{Ref, RefCell, RefMut},
+  cell::{RefCell, RefMut},
   collections::BTreeMap,
   rc::Rc,
 };
@@ -37,7 +37,7 @@ where
       .action_reward
       .add_sample(reward, 1)
   }
-  
+
   fn get_child(&mut self, obs: &O) -> Self::TreeNodePtr {
     if !self.children.contains_key(obs) {
       self.children.insert(obs.clone(), Default::default());
@@ -64,10 +64,10 @@ where
     &self.children
   }
   fn value(&self) -> &RunningAverage {
-      &self.value
+    &self.value
   }
   fn value_mut(&mut self) -> &mut RunningAverage {
-      &mut self.value
+    &mut self.value
   }
 }
 
