@@ -1,4 +1,5 @@
 pub mod bandits;
+pub mod eval;
 pub mod forest;
 pub mod render;
 mod utils;
@@ -7,19 +8,24 @@ use std::{collections::BTreeMap, fmt::Debug, ops::DerefMut};
 pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
 
+use self::eval::BaseEval;
 use crate::{
   search::forest::{ActionInfo, TreeNode, TreeNodePtr},
   BlockMaPomdp, MaMdp, MaPomdp,
 };
 
 // TODO: score bounds
-pub struct Search<T> {
+pub struct Search<T, E> {
   pub tree_policy: T,
+  pub base_eval: E,
 }
 
-impl<T> Search<T> {
-  pub fn new(tree_policy: T) -> Self {
-    Search { tree_policy }
+impl<T, E> Search<T, E> {
+  pub fn new(tree_policy: T, base_eval: E) -> Self {
+    Search {
+      tree_policy,
+      base_eval,
+    }
   }
 
   // selects a joint action for state
@@ -243,6 +249,7 @@ impl<T> Search<T> {
     State: Clone,
     Action: Default + Ord,
     Observation: Ord,
+    E: BaseEval<M, State, Action, N>,
   {
     let mut trajectory: Vec<[TNodePtr; N]> = vec![]; //Vec<[TNode::TreeNodePtr; N]>;
     let mut actions = vec![];
@@ -258,8 +265,8 @@ impl<T> Search<T> {
           //println!("Leaf");
           self.expand(problem, state, &current_nodes);
           trajectory.push(current_nodes);
-          // TODO: find
-          let terminal_value = [0.0; N];
+          let base_eval = self.base_eval.evaluate(problem, state);
+          let terminal_value = base_eval.values;
           return self.propogate(&trajectory, &actions, &rewards, terminal_value);
         }
         SelectResult::Action(joint_action) => {
@@ -287,6 +294,7 @@ impl<T> Search<T> {
     State: Clone,
     Action: Default + Ord,
     Observation: Ord,
+    E: BaseEval<M, State, Action, N>,
   {
     self.step_internal(problem, &mut state.clone(), current_nodes)
   }
@@ -304,6 +312,7 @@ impl<T> Search<T> {
     State: Clone,
     Action: Default + Ord,
     Observation: Ord,
+    E: BaseEval<M, State, Action, 1>,
   {
     let mut m = problem.sample(obs_seq, 0);
     self.step_internal(problem, &mut m.state, current_nodes)
@@ -331,6 +340,3 @@ enum SelectResult<A> {
   Leaf,     // Reached a leaf while descending
   Action(A),
 }
-
-// TODO
-pub trait StaticPolicy {}

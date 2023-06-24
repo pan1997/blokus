@@ -154,7 +154,7 @@ impl Default for Move {
 impl Display for Move {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match &self {
-      Move::Observe => write!(f, "P"),
+      Move::Observe => write!(f, "Pass"),
       Move::Drop { color, column } => write!(f, "Drop({color},{column})"),
     }
   }
@@ -171,10 +171,16 @@ impl Display for Color {
 
 #[cfg(test)]
 mod tests {
-  use std::fs::File;
+  use std::{fs::File, marker::PhantomData};
 
   use super::*;
-  use crate::search::{bandits::Random, forest::{refcnt_forest::Node, TreeNodePtr, TreeNode}, render::save, Search};
+  use crate::search::{
+    bandits::Random,
+    eval::{ZeroEval, RandomSimulation},
+    forest::{refcnt_forest::Node, TreeNode, TreeNodePtr},
+    render::save,
+    Search, Uct,
+  };
 
   #[test]
   fn t1() {
@@ -187,9 +193,9 @@ mod tests {
   fn test_random() {
     let game = C4;
     let state: State<6, 7> = game.initial_state();
-    let s = Search::new(Random);
+    let s = Search::new(Random, ZeroEval);
     let trees = [Node::new(), Node::new()];
-    for iter in 0..100 {
+    for iter in 0..1000 {
       let n = [trees[0].clone(), trees[1].clone()];
       let x = s.step_mdp(&game, &state, n);
       //println!("{iter}: rewards: {x:?}");
@@ -198,11 +204,33 @@ mod tests {
       println!("player: {ix}");
       let guard = trees[ix].lock();
       let policy = guard.compute_policy();
-      for (m, pi) in policy {
-        println!("score of {m} is {pi}")
+      for (m, pi, q) in policy {
+        println!("policy of {m} is {pi} and q is {q}")
       }
     }
     save(trees, File::create("c4.random.dot").unwrap(), 0, 100);
-    
+  }
+
+
+  #[test]
+  fn test_uct() {
+    let game = C4;
+    let state: State<6, 7> = game.initial_state();
+    let s = Search::new(Uct(2.4), RandomSimulation::new());
+    let trees = [Node::new(), Node::new()];
+    for iter in 0..10000 {
+      let n = [trees[0].clone(), trees[1].clone()];
+      let x = s.step_mdp(&game, &state, n);
+      //println!("{iter}: rewards: {x:?}");
+    }
+    for ix in 0..2 {
+      println!("player: {ix}");
+      let guard = trees[ix].lock();
+      let policy = guard.compute_policy();
+      for (m, pi, q) in policy {
+        println!("policy of {m} is {pi} and q is {q}")
+      }
+    }
+    save(trees, File::create("c4.uct.dot").unwrap(), 0, 100);
   }
 }

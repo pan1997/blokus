@@ -288,7 +288,7 @@ mod tests {
   use std::fs::File;
 
   use super::*;
-  use crate::search::{forest::refcnt_forest::Node, render::save, Search, Uct};
+  use crate::search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Search, Uct};
 
   #[test]
   fn test_compress() {
@@ -308,6 +308,7 @@ mod tests {
     let state = game.initial_state();
     let search = Search {
       tree_policy: Uct(2.4),
+      base_eval: ZeroEval,
     };
     let root = Node::new();
     for _ in 0..10000 {

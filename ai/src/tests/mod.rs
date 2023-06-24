@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fs::File};
 use rand::{distributions::WeightedIndex, prelude::*};
 
 use crate::{
-  search::{forest::refcnt_forest::Node, render::save, Random, Search, Uct},
+  search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Random, Search, Uct},
   traits::pomdp::{SampleResult, TranstitionResult},
   MaMdp, MaPomdp,
 };
@@ -175,7 +175,7 @@ fn problem1() -> StaticMdp {
 #[test]
 fn t1() {
   let p1 = problem1();
-  let s = Search::new(Random);
+  let s = Search::new(Random, ZeroEval);
   let state = 0;
   let trees = [Node::new(); 1];
   for iter in 0..100 {
@@ -189,7 +189,7 @@ fn t1() {
 #[test]
 fn t2() {
   let p1 = problem1();
-  let s = Search::new(Uct(2.4));
+  let s = Search::new(Uct(2.4), ZeroEval);
   let state = 0;
   let trees = [Node::new(); 1];
   for iter in 0..10000 {
