@@ -287,11 +287,10 @@ impl Debug for State {
 mod tests {
   use std::fs::File;
 
-  use crate::search::bandits::Random;
-  use crate::search::forest::refcnt_forest::Node;
-  use crate::search::{render::save, Search, TreeNode};
-
   use super::*;
+  use crate::search::{
+    bandits::Random, forest::refcnt_forest::Node, render::save, Search, TreeNode,
+  };
 
   #[test]
   fn test_compress() {

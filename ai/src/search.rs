@@ -19,7 +19,7 @@ impl<T> Search<T> {
   }
 
   // selects a joint action for state
-  // We assume that all agents select their actions independently using the 
+  // We assume that all agents select their actions independently using the
   // tree_policy
   fn select_joint_action<
     M,
@@ -39,6 +39,7 @@ impl<T> Search<T> {
   where
     TNodePtr: TreeNodePtr<Action, Observation>,
     M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
+    // TODO: remove this default requirement
     Action: Default,
     T: TreePolicy<M, ObservationSeq, SampleKey, Observation, State, Action, TNodePtr::TreeNode, N>,
   {
@@ -47,6 +48,11 @@ impl<T> Search<T> {
       let mut guard = nodes[ix].lock();
       if guard.first_visit() {
         // This node has never been visisted, so don't select an action
+        drop(guard);
+        // todo: mark other agent's visit too
+        for jx in 0..N {
+          nodes[jx].lock().first_visit();
+        }
         return SelectResult::Leaf;
       }
 
@@ -190,6 +196,8 @@ impl<T> Search<T> {
   {
     for ix in 0..N {
       let actions = problem.actions(state, ix);
+      let len = actions.len();
+      //println!("returned actions len: {len}");
       // TODO: static policy
       // TODO: rollout/eval
 
@@ -199,6 +207,8 @@ impl<T> Search<T> {
       let mut guard = nodes[ix].lock();
       // This should be empty, as we need to ensure that this node has never
       // been expanded before
+      let len = guard.actions().len();
+      //println!("guard action len: {len}");
       debug_assert!(guard.actions().len() == 0);
       let am = guard.actions_mut();
       for action in actions {

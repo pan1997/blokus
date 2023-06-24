@@ -1,4 +1,4 @@
-use std::{fmt::Display};
+use std::fmt::Display;
 
 use crate::{
   connection::connect4::Color::{Blue, Red},
@@ -7,18 +7,19 @@ use crate::{
 };
 
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Color {
   Red = 0,
   Blue = 1,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Move {
   Drop { color: Color, column: u8 },
   Observe,
 }
 
+#[derive(Clone)]
 struct State<const H: usize, const W: usize> {
   board: [[Option<Color>; H]; W],
   heights: [usize; W],
@@ -42,7 +43,7 @@ impl<const H: usize, const W: usize> State<H, W> {
     for len in 0..3 {
       x = x.wrapping_add(dx);
       y = y.wrapping_add(dy);
-      if x > W || y > H || self.board[x][y] != center {
+      if x >= W || y >= H || self.board[x][y] != center {
         return len;
       }
     }
@@ -102,9 +103,9 @@ impl<const H: usize, const W: usize> MaMdp<State<H, W>, Move, Move, 2> for C4 {
     if state.empty_cell_count == 0 {
       state.player_to_move = None;
     } else {
-      let l = state.count_ray((column, state.heights[column]), (usize::MAX,0));
-      let r = state.count_ray((column, state.heights[column]), (1,0));
-      let d = state.count_ray((column, state.heights[column]), (0,usize::MAX));
+      let l = state.count_ray((column, state.heights[column]), (usize::MAX, 0));
+      let r = state.count_ray((column, state.heights[column]), (1, 0));
+      let d = state.count_ray((column, state.heights[column]), (0, usize::MAX));
       // TODO: diagonal
       if l + r >= 4 || d >= 4 {
         rewards[agent_index] = 1.0;
@@ -137,22 +138,62 @@ impl TryFrom<u8> for Color {
 impl<const H: usize, const W: usize> Display for State<H, W> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     for row in 0..H {
-      for col in 0..W {
-        
-      }
+      for col in 0..W {}
     }
-      Ok(())
+    Ok(())
+  }
+}
+
+// TODO: remove
+impl Default for Move {
+  fn default() -> Self {
+    Move::Observe
+  }
+}
+
+impl Display for Move {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match &self {
+      Move::Observe => write!(f, "P"),
+      Move::Drop { color, column } => write!(f, "Drop({color},{column})"),
+    }
+  }
+}
+
+impl Display for Color {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match &self {
+      Color::Blue => write!(f, "B"),
+      Color::Red => write!(f, "R"),
+    }
   }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use std::fs::File;
+
+  use super::*;
+  use crate::search::{bandits::Random, forest::refcnt_forest::Node, render::save, Search};
 
   #[test]
   fn t1() {
     let game = C4;
     let state: State<6, 7> = game.initial_state();
     println!("{state}")
+  }
+
+  #[test]
+  fn test_random() {
+    let game = C4;
+    let state: State<6, 7> = game.initial_state();
+    let s = Search::new(Random);
+    let trees = [Node::new(), Node::new()];
+    for iter in 0..100 {
+      let n = [trees[0].clone(), trees[1].clone()];
+      let x = s.step_mdp(&game, &state, n);
+      //println!("{iter}: rewards: {x:?}");
+    }
+    save(trees, File::create("c4.random.dot").unwrap(), 0, 100)
   }
 }

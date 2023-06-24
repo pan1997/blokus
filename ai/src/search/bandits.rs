@@ -3,7 +3,6 @@ use rand::seq::IteratorRandom;
 use super::{TreeNode, TreePolicy};
 use crate::MaPomdp;
 
-
 pub struct Random;
 impl<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, const N: usize>
   TreePolicy<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, N> for Random
@@ -37,7 +36,7 @@ where
     let lgN = ((node.select_count() + 1) as f32).ln();
     for (action, info) in actions {
       if info.select_count == 0 {
-        return action.clone()
+        return action.clone();
       }
       let select_count = info.select_count as f32;
       let expected_value = info.action_value();

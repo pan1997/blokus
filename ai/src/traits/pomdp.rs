@@ -45,7 +45,6 @@ pub trait TurnBasedProblem<State, Action> {
   fn pass_action(&self) -> Action;
 }*/
 
-
 pub trait BlockMaPomdp<ObservationSeq, SampleKey, Observation, State, Action, const N: usize>:
   MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>
 {
