@@ -208,7 +208,7 @@ mod tests {
         println!("policy of {m} is {pi} and q is {q}")
       }
     }
-    save(trees, File::create("c4.random.dot").unwrap(), 0, 100);
+    save(trees, File::create("c4.random.dot").unwrap(), 0, 4);
   }
 
 
@@ -218,7 +218,7 @@ mod tests {
     let state: State<6, 7> = game.initial_state();
     let s = Search::new(Uct(2.4), RandomSimulation::new());
     let trees = [Node::new(), Node::new()];
-    for iter in 0..10000 {
+    for iter in 0..100000 {
       let n = [trees[0].clone(), trees[1].clone()];
       let x = s.step_mdp(&game, &state, n);
       //println!("{iter}: rewards: {x:?}");
@@ -231,6 +231,6 @@ mod tests {
         println!("policy of {m} is {pi} and q is {q}")
       }
     }
-    save(trees, File::create("c4.uct.dot").unwrap(), 0, 100);
+    save(trees, File::create("c4.uct.dot").unwrap(), 0, 4);
   }
 }
