@@ -1,7 +1,9 @@
 use rand::seq::IteratorRandom;
 
-use super::{TreeNode, TreePolicy};
-use crate::MaPomdp;
+use crate::{
+  search::{forest::TreeNode, TreePolicy},
+  MaPomdp,
+};
 
 pub struct Random;
 impl<M, ObservationSeq, SampleKey, Observation, State, Action, TNode, const N: usize>

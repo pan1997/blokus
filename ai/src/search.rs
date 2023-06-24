@@ -7,7 +7,10 @@ use std::{collections::BTreeMap, fmt::Debug, ops::DerefMut};
 pub use bandits::{Random, Uct};
 pub use utils::{Bounds, RunningAverage};
 
-use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
+use crate::{
+  search::forest::{ActionInfo, TreeNode, TreeNodePtr},
+  BlockMaPomdp, MaMdp, MaPomdp,
+};
 
 // TODO: score bounds
 pub struct Search<T> {
@@ -305,37 +308,6 @@ impl<T> Search<T> {
     let mut m = problem.sample(obs_seq, 0);
     self.step_internal(problem, &mut m.state, current_nodes)
   }
-}
-
-// A node in the mcts search tree for a single agent
-pub trait TreeNode<A, O>: Sized {
-  // Default is the nil ptr
-  type TreeNodePtr: Default;
-  fn actions(&self) -> &BTreeMap<A, ActionInfo>;
-  fn children(&self) -> &BTreeMap<O, Self::TreeNodePtr>;
-  fn actions_mut(&mut self) -> &mut BTreeMap<A, ActionInfo>;
-
-  // returns true if this node hasn't been visited before
-  // also marks the node visited so never returns true again
-  fn first_visit(&mut self) -> bool;
-
-  fn select_count(&self) -> u32;
-  fn value(&self) -> &RunningAverage;
-  fn value_mut(&mut self) -> &mut RunningAverage;
-
-  fn increment_select_count(&mut self, action: &A);
-  fn add_action_sample(&mut self, action: &A, reward: f32);
-  fn get_child(&mut self, obs: &O) -> Self::TreeNodePtr;
-}
-
-pub trait TreeNodePtr<A, O> {
-  type TreeNode: TreeNode<A, O, TreeNodePtr = Self>;
-  type Guard<'a>: DerefMut<Target = Self::TreeNode> + 'a
-  where
-    Self: 'a;
-  fn lock<'a, 'b>(&'b self) -> Self::Guard<'a>
-  where
-    'b: 'a;
 }
 
 pub trait TreePolicy<

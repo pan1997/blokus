@@ -4,7 +4,10 @@ use std::{
   rc::Rc,
 };
 
-use crate::search::{forest::ActionInfo, RunningAverage, TreeNode, TreeNodePtr};
+use crate::search::{
+  forest::{ActionInfo, TreeNode, TreeNodePtr},
+  RunningAverage,
+};
 
 pub struct Node<A, O> {
   visited: bool,

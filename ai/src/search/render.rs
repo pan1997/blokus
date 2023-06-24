@@ -8,7 +8,7 @@ use graphviz_rust::{
   printer::{DotPrinter, PrinterContext},
 };
 
-use super::{TreeNode, TreeNodePtr};
+use crate::search::forest::{TreeNode, TreeNodePtr};
 
 fn render<NodePtr, A: Ord + Display, O: Ord + Display>(
   node: &NodePtr,
