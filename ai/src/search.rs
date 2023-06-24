@@ -9,6 +9,7 @@ pub use utils::{Bounds, RunningAverage};
 
 use crate::{search::forest::ActionInfo, BlockMaPomdp, MaMdp, MaPomdp};
 
+// TODO: score bounds
 pub struct Search<T> {
   pub tree_policy: T,
 }
@@ -358,3 +359,6 @@ enum SelectResult<A> {
   Leaf,     // Reached a leaf while descending
   Action(A),
 }
+
+// TODO
+pub trait StaticPolicy {}

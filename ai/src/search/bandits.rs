@@ -50,3 +50,6 @@ where
     best_action.unwrap().clone()
   }
 }
+
+// TODO
+pub struct Puct;

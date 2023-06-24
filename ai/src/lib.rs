@@ -8,6 +8,9 @@ pub use traits::{
 
 mod blokus;
 mod connection;
+mod nn;
+mod qwirkle;
+mod ttt;
 
 #[cfg(test)]
 mod tests;

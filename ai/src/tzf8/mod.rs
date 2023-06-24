@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use rand::{seq::IteratorRandom, Rng};
 
-use crate::{traits::pomdp::TranstitionResult, MaMdp, MaPomdp};
+use crate::{traits::pomdp::TranstitionResult, MaMdp};
 
 pub struct Tzf8;
 
@@ -288,9 +288,7 @@ mod tests {
   use std::fs::File;
 
   use super::*;
-  use crate::search::{
-    bandits::Random, forest::refcnt_forest::Node, render::save, Search, TreeNode,
-  };
+  use crate::search::{forest::refcnt_forest::Node, render::save, Search, Uct};
 
   #[test]
   fn test_compress() {
@@ -309,12 +307,12 @@ mod tests {
     let game = Tzf8;
     let state = game.initial_state();
     let search = Search {
-      tree_policy: Random,
+      tree_policy: Uct(2.4),
     };
     let root = Node::new();
-    for _ in 0..100 {
+    for _ in 0..10000 {
       search.step_mdp(&game, &state, [root.clone()]);
     }
-    save([root], File::create("tzf8.t1.dot").unwrap(), 0, 200);
+    save([root], File::create("tzf8.t1.dot").unwrap(), 0, 2);
   }
 }
