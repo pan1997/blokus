@@ -48,6 +48,12 @@ pub trait TreeNode<A, O>: Sized {
   fn increment_select_count(&mut self, action: &A);
   fn add_action_sample(&mut self, action: &A, reward: f32);
   fn get_child(&mut self, obs: &O) -> Self::TreeNodePtr;
+
+
+  fn compute_policy(&self) -> Vec<(&A, f32)> {
+    let count = self.select_count() as f32;
+    self.actions().iter().map(|(a, info)| (a, info.select_count as f32 / count)).collect()
+  }
 }
 
 pub trait TreeNodePtr<A, O> {

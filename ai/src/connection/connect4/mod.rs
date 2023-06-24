@@ -174,7 +174,7 @@ mod tests {
   use std::fs::File;
 
   use super::*;
-  use crate::search::{bandits::Random, forest::refcnt_forest::Node, render::save, Search};
+  use crate::search::{bandits::Random, forest::{refcnt_forest::Node, TreeNodePtr, TreeNode}, render::save, Search};
 
   #[test]
   fn t1() {
@@ -194,6 +194,15 @@ mod tests {
       let x = s.step_mdp(&game, &state, n);
       //println!("{iter}: rewards: {x:?}");
     }
-    save(trees, File::create("c4.random.dot").unwrap(), 0, 100)
+    for ix in 0..2 {
+      println!("player: {ix}");
+      let guard = trees[ix].lock();
+      let policy = guard.compute_policy();
+      for (m, pi) in policy {
+        println!("score of {m} is {pi}")
+      }
+    }
+    save(trees, File::create("c4.random.dot").unwrap(), 0, 100);
+    
   }
 }
