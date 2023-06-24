@@ -20,3 +20,9 @@ impl Default for ActionInfo {
     }
   }
 }
+
+impl ActionInfo {
+  pub fn action_value(&self) -> f32 {
+    self.action_reward.value() + self.value_of_next_state.value()
+  }
+}

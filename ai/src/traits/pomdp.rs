@@ -39,6 +39,13 @@ pub trait MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, const N
   fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation);
 }
 
+/*
+pub trait TurnBasedProblem<State, Action> {
+  fn current_agent(&self, state: &State) -> usize;
+  fn pass_action(&self) -> Action;
+}*/
+
+
 pub trait BlockMaPomdp<ObservationSeq, SampleKey, Observation, State, Action, const N: usize>:
   MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>
 {

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fs::File};
 use rand::{distributions::WeightedIndex, prelude::*};
 
 use crate::{
-  search::{forest::refcnt_forest::Node, render::save, Random, Search},
+  search::{forest::refcnt_forest::Node, render::save, Random, Search, Uct},
   traits::pomdp::{SampleResult, TranstitionResult},
   MaMdp, MaPomdp,
 };
@@ -184,4 +184,18 @@ fn t1() {
     println!("{iter}: rewards: {x:?}");
   }
   save(trees, File::create("test.t1.dot").unwrap(), 0, 100)
+}
+
+#[test]
+fn t2() {
+  let p1 = problem1();
+  let s = Search::new(Uct(2.4));
+  let state = 0;
+  let trees = [Node::new(); 1];
+  for iter in 0..10000 {
+    let n = [trees[0].clone(); 1];
+    let x = s.step_mdp(&p1, &state, n);
+    //println!("{iter}: rewards: {x:?}");
+  }
+  save(trees, File::create("test.t2.dot").unwrap(), 0, 3)
 }

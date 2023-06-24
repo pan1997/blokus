@@ -19,6 +19,8 @@ impl<T> Search<T> {
   }
 
   // selects a joint action for state
+  // We assume that all agents select their actions independently using the 
+  // tree_policy
   fn select_joint_action<
     M,
     ObservationSeq,
@@ -32,7 +34,6 @@ impl<T> Search<T> {
     &self,
     problem: &M,
     state: &State,
-    // This needs to be mutable, because we want to increment select counts
     nodes: &[TNodePtr; N],
   ) -> SelectResult<[Action; N]>
   where
@@ -235,12 +236,12 @@ impl<T> Search<T> {
     loop {
       match self.select_joint_action(problem, state, &current_nodes) {
         SelectResult::Terminal => {
-          println!("Terminal");
+          //println!("Terminal");
           trajectory.push(current_nodes);
           return self.propogate(&trajectory, &actions, &rewards, [0.0; N]);
         }
         SelectResult::Leaf => {
-          println!("Leaf");
+          //println!("Leaf");
           self.expand(problem, state, &current_nodes);
           trajectory.push(current_nodes);
           // TODO: find
@@ -248,7 +249,7 @@ impl<T> Search<T> {
           return self.propogate(&trajectory, &actions, &rewards, terminal_value);
         }
         SelectResult::Action(joint_action) => {
-          println!("Advancing");
+          //println!("Advancing");
           let (_nodes, _rewards) = self.advance(problem, state, &current_nodes, &joint_action);
           actions.push(joint_action);
           rewards.push(_rewards);
