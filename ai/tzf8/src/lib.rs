@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use rand::{seq::IteratorRandom, Rng};
 
-use crate::{traits::pomdp::TranstitionResult, MaMdp};
+use ai::{TranstitionResult, MaMdp};
 
 pub struct Tzf8;
 
@@ -288,7 +288,7 @@ mod tests {
   use std::fs::File;
 
   use super::*;
-  use crate::search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Search, Uct};
+  use ai::search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Search, Uct};
 
   #[test]
   fn test_compress() {

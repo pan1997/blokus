@@ -1,13 +1,5 @@
-[workspace]
-members = [
-  "blokus",
-  "nn",
-  "qwirkle",
-  "tzf8"
-]
-
 [package]
-name = "ai"
+name = "tzf8"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 rand = "*"
-graphviz-rust = "*"
+ai = {path = "../"}

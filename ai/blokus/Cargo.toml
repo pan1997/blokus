@@ -1,18 +1,8 @@
-[workspace]
-members = [
-  "blokus",
-  "nn",
-  "qwirkle",
-  "tzf8"
-]
-
 [package]
-name = "ai"
+name = "blokus"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = "*"
-graphviz-rust = "*"
