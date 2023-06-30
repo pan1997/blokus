@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display};
 
+use ai::{MaMdp, TranstitionResult};
 use rand::{seq::IteratorRandom, Rng};
 
 use ai::{MaMdp, TranstitionResult};
@@ -287,8 +288,9 @@ impl Debug for State {
 mod tests {
   use std::fs::File;
 
-  use super::*;
   use ai::search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Search, Uct};
+
+  use super::*;
 
   #[test]
   fn test_compress() {

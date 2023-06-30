@@ -24,6 +24,12 @@ pub trait MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, const N
   // every non terminal state needs to have an action for
   // every agent. Create a dummy action to represent pass
   // A state is terminal, if any agent's action list is empty
+  // Note that we pass a Vec of all the actions, as it doesn't
+  // mane sense to incrementally generate this list. this is
+  // because of the way it is used in search, where we create
+  // all the action_info for a node at the same time.
+  // TODO: explore if search can make use of an incremental
+  // move gen approach
   fn actions(&self, state: &State, agent: usize) -> Vec<Action>;
 
   fn transition(

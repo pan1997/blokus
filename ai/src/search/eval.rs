@@ -10,8 +10,8 @@ pub trait BaseEval<M, State, Action, const N: usize> {
 }
 
 pub struct EvaluationResult<'a, A, const N: usize> {
-  pub(crate) values: [f32; N],
-  pub(crate) policies: [Vec<(&'a A, f32)>; N],
+  pub values: [f32; N],
+  pub policies: [Vec<(&'a A, f32)>; N],
 }
 
 pub struct ZeroEval;
