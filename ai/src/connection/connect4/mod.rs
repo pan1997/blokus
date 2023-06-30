@@ -176,7 +176,7 @@ mod tests {
   use super::*;
   use crate::search::{
     bandits::Random,
-    eval::{ZeroEval, RandomSimulation},
+    eval::{ZeroEval, RandomRolloutEval},
     forest::{refcnt_forest::Node, TreeNode, TreeNodePtr},
     render::save,
     Search, Uct,
@@ -216,7 +216,7 @@ mod tests {
   fn test_uct() {
     let game = C4;
     let state: State<6, 7> = game.initial_state();
-    let s = Search::new(Uct(2.4), RandomSimulation::new());
+    let s = Search::new(Uct(2.4), RandomRolloutEval::new(100));
     let trees = [Node::new(), Node::new()];
     for iter in 0..100000 {
       let n = [trees[0].clone(), trees[1].clone()];

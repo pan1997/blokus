@@ -24,25 +24,29 @@ impl<M, S, A, const N: usize> BaseEval<M, S, A, N> for ZeroEval {
   }
 }
 
-pub struct RandomSimulation<M, ObservationSeq, SampleKey, Observation> {
+pub struct RandomRolloutEval<M, ObservationSeq, SampleKey, Observation> {
+  horizon: u32,
   phantom_data: PhantomData<(M, ObservationSeq, SampleKey, Observation)>
 }
 
-impl<M, Os, S, O> RandomSimulation<M, Os, S, O> {
-  pub fn new() -> Self {
-    RandomSimulation { phantom_data: Default::default() }
+impl<M, Os, S, O> RandomRolloutEval<M, Os, S, O> {
+  pub fn new(horizon: u32) -> Self {
+    RandomRolloutEval { 
+      horizon,
+      phantom_data: Default::default() 
+    }
   }
 } 
 
 impl<M, ObservationSeq, SampleKey, Observation, State, Action, const N: usize>
-  BaseEval<M, State, Action, N> for RandomSimulation<M, ObservationSeq, SampleKey, Observation>
+  BaseEval<M, State, Action, N> for RandomRolloutEval<M, ObservationSeq, SampleKey, Observation>
 where
   M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
   Action: Default + Clone
 {
   fn evaluate<'a>(&self, problem: &M, state: &'a mut State) -> EvaluationResult<'a, Action, N> {
     let mut accum = [0.0; N];
-    'outer: loop {
+    'outer: for _ in 0..self.horizon {
       let mut joint_action = [(); N].map(|_| Default::default());
       for agent in 0..N {
         let agent_actions = problem.actions(state, agent);

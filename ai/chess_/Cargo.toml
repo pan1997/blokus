@@ -1,19 +1,10 @@
-[workspace]
-members = [
-  "blokus",
-  "chess_",
-  "nn",
-  "qwirkle",
-  "tzf8"
-]
-
 [package]
-name = "ai"
+name = "chess_"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = "*"
-graphviz-rust = "*"
+chess = "*"
+ai = {path = "../"}
