@@ -29,9 +29,9 @@ print(y)
 torch.onnx.export(
     model,
     x,
-    "test.onnx",
+    "test.onnx.pb",
     export_params=True,
-    opset_version=10,
+    opset_version=14,
     do_constant_folding=True,
     input_names=["input"],
     output_names=["output"],
