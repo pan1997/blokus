@@ -1,7 +1,13 @@
 use std::fs::File;
 
 use ai::{
-  search::{bandits::Uct, eval::{ZeroEval, RandomRolloutEval}, forest::{refcnt_forest::Node, TreeNodePtr, TreeNode}, render::save, Search},
+  search::{
+    bandits::Uct,
+    eval::{RandomRolloutEval, ZeroEval},
+    forest::{refcnt_forest::Node, TreeNode, TreeNodePtr},
+    render::save,
+    Search,
+  },
   MaMdp,
 };
 
@@ -18,7 +24,7 @@ fn main() {
     base_eval: RandomRolloutEval::new(100),
   };
   let roots = [Node::new(), Node::new()];
-  for _ in 0..10000 {
+  for _ in 0..50000 {
     search.step_mdp(&g, &board, [roots[0].clone(), roots[1].clone()]);
   }
   let g = roots[0].lock();

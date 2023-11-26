@@ -1,4 +1,4 @@
-use std::{marker::PhantomData};
+use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
 
@@ -26,23 +26,23 @@ impl<M, S, A, const N: usize> BaseEval<M, S, A, N> for ZeroEval {
 
 pub struct RandomRolloutEval<M, ObservationSeq, SampleKey, Observation> {
   horizon: u32,
-  phantom_data: PhantomData<(M, ObservationSeq, SampleKey, Observation)>
+  phantom_data: PhantomData<(M, ObservationSeq, SampleKey, Observation)>,
 }
 
 impl<M, Os, S, O> RandomRolloutEval<M, Os, S, O> {
   pub fn new(horizon: u32) -> Self {
-    RandomRolloutEval { 
+    RandomRolloutEval {
       horizon,
-      phantom_data: Default::default() 
+      phantom_data: Default::default(),
     }
   }
-} 
+}
 
 impl<M, ObservationSeq, SampleKey, Observation, State, Action, const N: usize>
   BaseEval<M, State, Action, N> for RandomRolloutEval<M, ObservationSeq, SampleKey, Observation>
 where
   M: MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, N>,
-  Action: Default + Clone
+  Action: Default + Clone,
 {
   fn evaluate<'a>(&self, problem: &M, state: &'a mut State) -> EvaluationResult<'a, Action, N> {
     let mut accum = [0.0; N];
@@ -53,7 +53,10 @@ where
         if agent_actions.len() == 0 {
           break 'outer;
         }
-        joint_action[agent] = agent_actions.choose(&mut rand::thread_rng()).unwrap().clone();
+        joint_action[agent] = agent_actions
+          .choose(&mut rand::thread_rng())
+          .unwrap()
+          .clone();
       }
       let transition_result = problem.transition(state, &joint_action);
       for ix in 0..N {
@@ -62,7 +65,7 @@ where
     }
     EvaluationResult {
       values: accum,
-      policies: [(); N].map(|_| vec![])
+      policies: [(); N].map(|_| vec![]),
     }
   }
 }

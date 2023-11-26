@@ -176,7 +176,7 @@ mod tests {
   use super::*;
   use crate::search::{
     bandits::Random,
-    eval::{ZeroEval, RandomRolloutEval},
+    eval::{RandomRolloutEval, ZeroEval},
     forest::{refcnt_forest::Node, TreeNode, TreeNodePtr},
     render::save,
     Search, Uct,
@@ -210,7 +210,6 @@ mod tests {
     }
     save(trees, File::create("c4.random.dot").unwrap(), 0, 4);
   }
-
 
   #[test]
   fn test_uct() {

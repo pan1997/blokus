@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use rand::{seq::IteratorRandom, Rng};
 
-use ai::{TranstitionResult, MaMdp};
+use ai::{MaMdp, TranstitionResult};
 
 pub struct Tzf8;
 

@@ -2,7 +2,6 @@
 members = [
   "blokus",
   "chess_",
-  "nn",
   "qwirkle",
   "tzf8"
 ]

@@ -35,14 +35,14 @@ where
     let actions = node.actions();
     let mut best_action = None;
     let mut best_action_score = f32::MIN;
-    let lgN = ((node.select_count() + 1) as f32).ln();
+    let lg_n = ((node.select_count() + 1) as f32).ln();
     for (action, info) in actions {
       if info.select_count == 0 {
         return action.clone();
       }
       let select_count = info.select_count as f32;
       let expected_value = info.action_value();
-      let score = expected_value + (lgN / select_count).sqrt() * self.0;
+      let score = expected_value + (lg_n / select_count).sqrt() * self.0;
       //println!("ln_N: {lgN}, select_count: {select_count} score: {score}, best_score: {best_action_score}");
       if score > best_action_score {
         best_action_score = score;
