@@ -1,10 +1,8 @@
 use std::fmt::Display;
 
-use crate::{
-  connection::connect4::Color::{Blue, Red},
-  traits::pomdp::TranstitionResult,
-  MaMdp,
-};
+use crate::connect4::Color::{Blue, Red};
+use ai::TranstitionResult;
+use ai::MaMdp;
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -171,10 +169,10 @@ impl Display for Color {
 
 #[cfg(test)]
 mod tests {
-  use std::{fs::File, marker::PhantomData};
+  use std::fs::File;
 
   use super::*;
-  use crate::search::{
+  use ai::search::{
     bandits::Random,
     eval::{RandomRolloutEval, ZeroEval},
     forest::{refcnt_forest::Node, TreeNode, TreeNodePtr},
