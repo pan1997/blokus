@@ -17,3 +17,4 @@ edition = "2021"
 [dependencies]
 rand = "*"
 graphviz-rust = "*"
+rstest = "*"

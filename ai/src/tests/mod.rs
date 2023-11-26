@@ -2,6 +2,8 @@ use std::{collections::BTreeMap, fs::File};
 
 use rand::{distributions::WeightedIndex, prelude::*};
 
+use rstest::*;
+
 use crate::{
   search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Random, Search, Uct},
   traits::pomdp::{SampleResult, TranstitionResult},
@@ -145,6 +147,8 @@ impl MaMdp<State, Action, Observation, 1> for StaticMdp {
   }
 }
 
+
+#[fixture]
 fn problem1() -> StaticMdp {
   let mut result = StaticMdp::new();
   let s0 = result.add_state();
@@ -172,29 +176,28 @@ fn problem1() -> StaticMdp {
   result
 }
 
-#[test]
-fn t1() {
-  let p1 = problem1();
-  let s = Search::new(Random, ZeroEval);
-  let state = 0;
-  let trees = [Node::new(); 1];
-  for iter in 0..100 {
-    let n = [trees[0].clone(); 1];
-    let x = s.step_mdp(&p1, &state, n);
-    println!("{iter}: rewards: {x:?}");
-  }
-  save(trees, File::create("test.t1.dot").unwrap(), 0, 100)
-}
 
-#[test]
-fn t2() {
-  let p1 = problem1();
-  let s = Search::new(Uct(2.4), ZeroEval);
+#[rstest]
+fn test_problem1_random_policy(problem1: StaticMdp) {
+  let s = Search::new(Random, ZeroEval);
   let state = 0;
   let trees = [Node::new(); 1];
   for iter in 0..10000 {
     let n = [trees[0].clone(); 1];
-    let x = s.step_mdp(&p1, &state, n);
+    let x = s.step_mdp(&problem1, &state, n);
+    println!("{iter}: rewards: {x:?}");
+  }
+  save(trees, File::create("test.t1.dot").unwrap(), 0, 3)
+}
+
+#[rstest]
+fn test_problem1_uct_policy(problem1: StaticMdp) {
+  let s = Search::new(Uct(4.8), ZeroEval);
+  let state = 0;
+  let trees = [Node::new(); 1];
+  for iter in 0..10000 {
+    let n = [trees[0].clone(); 1];
+    let x = s.step_mdp(&problem1, &state, n);
     //println!("{iter}: rewards: {x:?}");
   }
   save(trees, File::create("test.t2.dot").unwrap(), 0, 3)
