@@ -1,4 +1,4 @@
-use std::{fmt::Display, collections::BTreeMap, cmp::min, cmp::max};
+use std::{fmt::{Display, Debug, write}, collections::{BTreeMap, BTreeSet}, cmp::min, cmp::max};
 use ai::{MaPomdp, SampleResult};
 use colored::Colorize;
 use rand::{Rng, seq::IteratorRandom};
@@ -20,6 +20,7 @@ struct State<const N: usize> {
     // bag.. empty tiles moved to right
     hands: [[Tile; 6]; N],
     table: BTreeMap<(i16, i16), Tile>,
+    boundry: BTreeSet<(i16, i16)>,
     bag: BTreeMap<Tile, u8>,
     bag_size: usize,
 }
@@ -31,7 +32,7 @@ struct ObservationSeq {
 }
 
 
-
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Move {
     // all players other than the current player pass
     Pass,
@@ -39,13 +40,18 @@ enum Move {
     Exchange(Vec<Tile>),
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct Observation {
-    // all players see the move
+    // all players see the move if it's a placement move
+    // for exchange moves, players only see Pass here,
+    // but the pick 
     action: Move,
     // only the current player sees the tiles that were picked
     // for other players, this is a vector of None(s)
     pick: Vec<Option<Tile>>
 }
+
+const DIRECTIONS: [(i16, i16); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
 impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, Move, N> for Qwirkle<N> {
     fn start(&self, agent: usize) -> ObservationSeq {
@@ -64,7 +70,32 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
             if state.hands[agent][0].shape != 0 {
                 // current player has at least one tile
                 // placements
-                todo!("fill in placement computation");
+                
+                if state.table.is_empty() {
+                    // if table is empty then its the first move
+                    todo!("Implement first move");
+                } else {
+                    todo!("fill in placement computation");
+
+                    // iterate over the boundry of filled cells
+                    //   iterate over the tiles in hand
+                    //     check if placing this tile on this cell is legal (either shape or color matches on both horizontal & vertical, with no duplicates)
+                    //       if legal
+                    //          iterate over directions
+                    //            if the table is empty in this direction, 
+
+                    for (x, y) in state.boundry {
+                        for tile in state.hands[agent] {
+                            if state.is_tile_legal((x, y), tile) {
+                                for (dx, dy) in DIRECTIONS {
+
+                                }
+                            }
+                        }
+                    }
+                    todo!("complete")
+
+                }
                 // exchanges
                 todo!("fill in exchange computation");
             }
@@ -103,6 +134,7 @@ impl<const N: usize> Default for State<N> {
             current_player: 0,
             hands: [[Tile::default(); 6]; N],
             table: Default::default(),
+            boundry: Default::default(),
             bag: Default::default(),
             bag_size: 108,
         };
@@ -119,6 +151,8 @@ impl<const N: usize> State<N> {
     fn initialize_hands(&mut self) {
         for player in 0..N {
             let tiles = self.tiles_from_bag(6);
+            println!("bag:   {:?}", self.bag);
+            println!("tiles: {tiles:?}");
             self.remove_from_bag(&tiles);
             for ix in 0..6 {
                 self.hands[player][ix] = tiles[ix]
@@ -126,7 +160,7 @@ impl<const N: usize> State<N> {
         }
     }
 
-    fn boundry(&self) -> (i16, i16, i16, i16) {
+    fn bounding_rectangle(&self) -> (i16, i16, i16, i16) {
         self.table.keys().fold((0, 0, 0, 0), |(lx, ly, hx, hy), (x, y)| (min(lx, *x), min(ly, *y), max(hx, *x), max(hy, *y)))
     }
 
@@ -153,8 +187,37 @@ impl<const N: usize> State<N> {
 
     fn remove_from_bag(&mut self, tiles: &Vec<Tile>) {
         for tile in tiles {
-            self.bag.insert(*tile, self.bag.get(tile).map(|x| *x).unwrap_or_default() - 1);
+            if tile.shape != 0 && tile.color != 0 {
+                self.bag.insert(*tile, self.bag.get(tile).map(|x| *x).unwrap_or_default() - 1);
+                self.bag_size -= 1;
+            }
         }
+    }
+
+    fn compute_first_move_for_hand(hand: &[Tile]) {
+        let mut same_color = vec![0; hand.len()];
+        let mut same_shape = vec![0; hand.len()];
+        for ix in 0..hand.len() {
+            for jx in 0..ix {
+                // exclude duplicate tiles
+                if hand[ix].shape == hand[jx].shape && hand[ix].color != hand[jx].color {
+                    same_shape[ix] += 1;
+                    same_shape[jx] += 1;
+                }
+                if  hand[ix].shape != hand[jx].shape && hand[ix].color == hand[jx].color {
+                    same_color[ix] += 1;
+                    same_color[jx] += 1;
+                }
+            }
+        }
+        unimplemented!()
+    }
+
+    fn is_tile_legal(&self, (x, y): (i16, i16), tile: Tile) -> bool {
+        if !self.boundry.contains(&(x, y)) {
+            return false;
+        }
+        true
     }
 }
 
@@ -163,12 +226,12 @@ impl Display for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let c = match self.shape {
             0 => " ", // nil tile
-            1 => "⏺",
-            2 => "✦",
+            1 => "●",
+            2 => "✖",
             3 => "◆",
             4 => "■",
-            5 => "𖤓",
-            6 => "𖥔",
+            5 => "🟏",
+            6 => "🞧",
             _ => panic!("djdjd")
         };
         let cc = match self.color {
@@ -185,9 +248,15 @@ impl Display for Tile {
     }
 }
 
+impl Debug for Tile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
 impl<const N: usize> Display for State<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (low_x, low_y, high_x, high_y) = self.boundry();
+        let (low_x, low_y, high_x, high_y) = self.bounding_rectangle();
         for x in (low_x - 3)..(high_x+4) {
             for y in (low_y - 3)..(high_y+4) {
                 let t = self.table.get(&(x - low_x, y-low_y)).map(|x| *x).unwrap_or_default();
@@ -202,6 +271,8 @@ impl<const N: usize> Display for State<N> {
             }
             writeln!(f, "]")?;
         }
+
+        writeln!(f, "{:?}", self.bag)?;
         Ok(())
     }
 }
