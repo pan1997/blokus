@@ -53,7 +53,10 @@ impl MaPomdp<ObservationSeq, (), Observation, State, Action, 1> for StaticMpomdp
     }
   }
 
-  fn start(&self) -> ObservationSeq {
+  fn start(&self, agent: usize) -> ObservationSeq {
+    if agent != 0 {
+      panic!("Invalid agent")
+    }
     self.start.clone()
   }
 

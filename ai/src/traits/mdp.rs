@@ -22,7 +22,10 @@ where
     self.actions(state, agent)
   }
 
-  fn start(&self) -> State {
+  fn start(&self, agent: usize) -> State {
+    if agent != 0 {
+      unimplemented!("initial state for arbitrary agent not implemented")
+    }
     self.initial_state()
   }
 

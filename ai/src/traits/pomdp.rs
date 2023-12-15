@@ -1,6 +1,7 @@
 // MultiAgentPartiallyObservableMarkovDecisionProcess
 pub trait MaPomdp<ObservationSeq, SampleKey, Observation, State, Action, const N: usize> {
-  fn start(&self) -> ObservationSeq;
+  // returns the starting observation for agent 
+  fn start(&self, agent: usize) -> ObservationSeq;
 
   // samples a state from an agent's observation sequence
   // SampleKey is the hash of the ObservationSeq. It's used to find the search tree
