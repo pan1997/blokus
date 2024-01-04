@@ -29,6 +29,7 @@ struct State<const N: usize> {
   bag_size: usize,
 }
 
+#[derive(Debug)]
 struct ObservationSeq {
   player: usize,
   hand: [Tile; 6],
@@ -36,7 +37,7 @@ struct ObservationSeq {
   player_to_move: usize,
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum Move {
   // all players other than the current player pass
   Pass,
@@ -61,12 +62,12 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
   for Qwirkle<N>
 {
   fn start(&self, agent: usize) -> ObservationSeq {
-    // todo: refactor to avoid state creation
-    let mut state: State<N> = Default::default();
+    let state: State<N> = Default::default();
     let mut hand = [Tile::default(); 6];
     for (ix, tile) in state.tiles_from_bag(6).iter().enumerate() {
       hand[ix] = *tile;
     }
+
     ObservationSeq {
       player: agent,
       hand: hand,
@@ -78,42 +79,52 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
   fn actions(&self, state: &State<N>, agent: usize) -> Vec<Move> {
     let mut result = vec![];
     if state.current_player == agent {
-      if state.hands[agent][0].shape != 0 {
-        // current player has at least one tile
-        // placements
-
-        if state.table.is_empty() {
-          // if table is empty then its the first move
-          todo!("Implement first move");
-        } else {
-          // todo!("fill in placement computation");
-
-          // iterate over the boundry of filled cells
-          //   iterate over the tiles in hand
-          //     check if placing this tile on this cell is legal (either shape or color matches on both horizontal & vertical, with no duplicates)
-          //       if legal
-          //          iterate over directions
-          //            if the table is empty in this direction,
-          /*
-          for (x, y) in state.boundry {
-              for tile in state.hands[agent] {
-                  if state.is_tile_legal((x, y), tile) {
-                      for (dx, dy) in DIRECTIONS {
-
-                      }
-                  }
+      if state.table.is_empty() {
+        // if table is empty then its the first move
+        // iterate over all powersets of hand
+        // if valid (ie either chand or color match), then thats a valid placement
+        for combination in state.hands[state.current_player]
+          .clone()
+          .into_iter()
+          .powerset()
+        {
+          // skip single length combinations
+          if combination.len() > 1 {
+            if Tile::valid(&combination) {
+              for perm in combination.clone().into_iter().permutations(combination.len()) {
+                result.push(Move::Placement(perm.into_iter().enumerate().map(|(x, tile)| (tile, x as i16, 0)).collect()))
               }
+            }
           }
-          todo!("complete")*/
+        }
+      } else {
+        // todo!("fill in placement computation");
 
-          // exchanges
-          for combination in state.hands[state.current_player]
-            .clone()
-            .into_iter()
-            .powerset()
-          {
-            result.push(Move::Exchange(combination));
-          }
+        // iterate over the boundry of filled cells
+        //   iterate over the tiles in hand
+        //     check if placing this tile on this cell is legal (either shape or color matches on both horizontal & vertical, with no duplicates)
+        //       if legal
+        //          iterate over directions
+        //            if the table is empty in this direction,
+        /*
+        for (x, y) in state.boundry {
+            for tile in state.hands[agent] {
+                if state.is_tile_legal((x, y), tile) {
+                    for (dx, dy) in DIRECTIONS {
+
+                    }
+                }
+            }
+        }
+        todo!("complete")*/
+
+        // exchanges
+        for combination in state.hands[state.current_player]
+          .clone()
+          .into_iter()
+          .powerset()
+        {
+          result.push(Move::Exchange(combination));
         }
       }
     } else {
@@ -345,25 +356,6 @@ impl<const N: usize> State<N> {
     }
   }
 
-  fn compute_first_move_for_hand(hand: &[Tile]) {
-    let mut same_color = vec![0; hand.len()];
-    let mut same_shape = vec![0; hand.len()];
-    for ix in 0..hand.len() {
-      for jx in 0..ix {
-        // exclude duplicate tiles
-        if hand[ix].shape == hand[jx].shape && hand[ix].color != hand[jx].color {
-          same_shape[ix] += 1;
-          same_shape[jx] += 1;
-        }
-        if hand[ix].shape != hand[jx].shape && hand[ix].color == hand[jx].color {
-          same_color[ix] += 1;
-          same_color[jx] += 1;
-        }
-      }
-    }
-    unimplemented!()
-  }
-
   fn is_tile_legal(&self, (x, y): (i16, i16), tile: Tile) -> bool {
     if !self.boundry.contains(&(x, y)) {
       return false;
@@ -374,7 +366,7 @@ impl<const N: usize> State<N> {
   fn compute_table_boundry(&mut self) {
     self.boundry.clear();
     for (k, v) in self.table.iter() {
-        unimplemented!("todo");
+      unimplemented!("todo");
     }
   }
 }
@@ -442,12 +434,23 @@ impl Tile {
   fn nil() -> Tile {
     Tile { shape: 0, color: 0 }
   }
+
+  fn valid(tiles: &[Tile]) -> bool {
+    let mut color_match = true;
+    let mut shape_match = true;
+    for ix in 1..tiles.len() {
+      color_match = color_match && tiles[ix].color == tiles[0].color;
+      shape_match = shape_match && tiles[ix].shape == tiles[0].shape;
+    }
+    color_match || shape_match
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use ai::MaPomdp;
-use super::{State, Tile, Qwirkle};
+
+  use super::{Move, Qwirkle, State, Tile};
 
   #[test]
   fn test_tile_display() {
@@ -464,18 +467,29 @@ use super::{State, Tile, Qwirkle};
   fn test_state_display() {
     let mut state = State::<4>::default();
     state.initialize_hands();
+    assert_eq!(state.bag_size, 108 - 4 * 6);
     println!("{state}");
   }
 
   #[test]
-  fn test_move_gen() {
-    let g = Qwirkle::<4>;
+  fn test_qwirkle() {
+    let g = Qwirkle::<2>;
     let agent = 0;
     let o_seq = g.start(agent);
     let sr = g.sample(&o_seq, agent);
     let state = sr.state;
     let keys = sr.sample_keys;
+    assert_eq!(keys[agent], o_seq.hand);
+    assert_eq!(state.hands, keys);
+
+    let ac_0 = g.actions(&state, 0);
+    let ac_1 = g.actions(&state, 1);
+
+    assert!(ac_1.len() == 1);
+    assert_eq!(ac_1[0], Move::Pass);
+
     println!("{state}");
-    println!("keys: {keys:?}");
+    println!("a0: {ac_0:?}");
+    println!("a1: {ac_1:?}");
   }
 }

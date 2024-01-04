@@ -1,10 +1,7 @@
 use std::fmt::Display;
 
+use ai::{MaMdp, TranstitionResult};
 use Color::{Blue, Red};
-use ai::{
-  TranstitionResult,
-  MaMdp,
-};
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -173,7 +170,6 @@ impl Display for Color {
 mod tests {
   use std::fs::File;
 
-  use super::*;
   use ai::search::{
     bandits::Random,
     eval::{RandomRolloutEval, ZeroEval},
@@ -181,6 +177,8 @@ mod tests {
     render::save,
     Search, Uct,
   };
+
+  use super::*;
 
   #[test]
   fn t1() {

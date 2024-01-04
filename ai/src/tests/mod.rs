@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, fs::File};
 
 use rand::{distributions::WeightedIndex, prelude::*};
-
 use rstest::*;
 
 use crate::{
@@ -150,7 +149,6 @@ impl MaMdp<State, Action, Observation, 1> for StaticMdp {
   }
 }
 
-
 #[fixture]
 fn problem1() -> StaticMdp {
   let mut result = StaticMdp::new();
@@ -178,7 +176,6 @@ fn problem1() -> StaticMdp {
   result.add_transition(s2, a1, s2, s2, 0.0, 0.4);
   result
 }
-
 
 #[rstest]
 fn test_problem1_random_policy(problem1: StaticMdp) {
