@@ -1,5 +1,5 @@
 use std::{fmt::{Display, Debug}, collections::{BTreeMap, BTreeSet}, cmp::min, cmp::max};
-use ai::{MaPomdp, SampleResult};
+use ai::{MaPomdp, SampleResult, TranstitionResult};
 use colored::Colorize;
 use rand::seq::IteratorRandom;
 
@@ -120,6 +120,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         state: &mut State<N>,
         joint_action: &[Move; N],
       ) -> ai::TranstitionResult<Observation, N> {
+        let mut result = None;
         for (player, action) in joint_action.iter().enumerate() {
             if player == state.current_player {
                 match action {
@@ -153,6 +154,16 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
                                 }
                             }
                         }
+                        let mut tr = TranstitionResult {
+                            rewards: [0.0; N],
+                            observations: [0; N].map(|ix| Observation {
+                                pick: vec![None; tiles.len()],
+                                action: Move::Pass,
+                            })
+                        };
+                        tr.observations[state.current_player].action = action.clone();
+                        tr.observations[state.current_player].pick.append(new_tiles.into_iter().map(|x| Some(x)).collect());
+                        result.replace(tr);
                     },
                     Move::Placement(x) => {
                         unimplemented!()
@@ -162,7 +173,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
                 panic!("All players other than current should pass")
             }
         }
-        unimplemented!()
+        result.unwrap()
     }
 }
 
