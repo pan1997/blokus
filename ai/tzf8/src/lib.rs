@@ -3,8 +3,6 @@ use std::fmt::{Debug, Display};
 use ai::{MaMdp, TranstitionResult};
 use rand::{seq::IteratorRandom, Rng};
 
-use ai::{MaMdp, TranstitionResult};
-
 pub struct Tzf8;
 
 #[derive(Clone)]

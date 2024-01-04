@@ -1,11 +1,9 @@
-use std::{fmt::{Display, Debug, write}, collections::{BTreeMap, BTreeSet}, cmp::min, cmp::max};
+use std::{fmt::{Display, Debug}, collections::{BTreeMap, BTreeSet}, cmp::min, cmp::max};
 use ai::{MaPomdp, SampleResult};
 use colored::Colorize;
-use rand::{Rng, seq::IteratorRandom};
-
+use rand::seq::IteratorRandom;
 
 struct Qwirkle<const N: usize>;
-
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Tile {
@@ -122,6 +120,48 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         state: &mut State<N>,
         joint_action: &[Move; N],
       ) -> ai::TranstitionResult<Observation, N> {
+        for (player, action) in joint_action.iter().enumerate() {
+            if player == state.current_player {
+                match action {
+                    Move::Pass => {
+                        unimplemented!("Pass for current player not implemented")
+                    },
+                    Move::Exchange(tiles) => {
+                        // remove from hand
+                        for tile in tiles {
+                            if *tile == Tile::nil() {
+                                panic!("Cannot exchange nil tile");
+                            }
+                            for j in 0..6 {
+                                if *tile == state.hands[state.current_player][j] {
+                                    state.hands[state.current_player][j] = Tile::nil();
+                                    break; // inner
+                                }
+                            }
+                        }
+                        // put in bag
+                        state.insert_into_bag(tiles);
+
+                        // get new tiles
+                        let new_tiles = state.tiles_from_bag(tiles.len());
+                        state.remove_from_bag(&new_tiles);
+                        for tile in new_tiles {
+                            for j in 0..6 {
+                                if state.hands[state.current_player][j] == Tile::nil() {
+                                    state.hands[state.current_player][j] = tile;
+                                    break; //inner
+                                }
+                            }
+                        }
+                    },
+                    Move::Placement(x) => {
+                        unimplemented!()
+                    }
+                }
+            } else if *action != Move::Pass {
+                panic!("All players other than current should pass")
+            }
+        }
         unimplemented!()
     }
 }
@@ -190,6 +230,15 @@ impl<const N: usize> State<N> {
             if tile.shape != 0 && tile.color != 0 {
                 self.bag.insert(*tile, self.bag.get(tile).map(|x| *x).unwrap_or_default() - 1);
                 self.bag_size -= 1;
+            }
+        }
+    }
+
+    fn insert_into_bag(&mut self, tiles: &Vec<Tile>) {
+        for tile in tiles {
+            if tile.shape != 0 && tile.color != 0 {
+                self.bag.insert(*tile, self.bag.get(tile).map(|x| *x).unwrap_or_default() + 1);
+                self.bag_size += 1;
             }
         }
     }
@@ -277,6 +326,15 @@ impl<const N: usize> Display for State<N> {
     }
 }
 
+
+impl Tile {
+    fn nil() -> Tile {
+        Tile {
+            shape: 0,
+            color: 0
+        }
+    }
+}
 
 
 #[cfg(test)]

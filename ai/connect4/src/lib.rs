@@ -1,15 +1,10 @@
 use std::fmt::Display;
 
-<<<<<<<< HEAD:ai/connection/src/connect4/mod.rs
-use crate::connect4::Color::{Blue, Red};
-use ai::TranstitionResult;
-use ai::MaMdp;
-========
+use Color::{Blue, Red};
 use ai::{
   TranstitionResult,
   MaMdp,
 };
->>>>>>>> d2959eb (Refactor connect4 into seperate crate):ai/connect4/src/lib.rs
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
