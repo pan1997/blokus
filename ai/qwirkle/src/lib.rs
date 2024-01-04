@@ -146,10 +146,10 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
                         // get new tiles
                         let new_tiles = state.tiles_from_bag(tiles.len());
                         state.remove_from_bag(&new_tiles);
-                        for tile in new_tiles {
+                        for tile in new_tiles.iter() {
                             for j in 0..6 {
                                 if state.hands[state.current_player][j] == Tile::nil() {
-                                    state.hands[state.current_player][j] = tile;
+                                    state.hands[state.current_player][j] = *tile;
                                     break; //inner
                                 }
                             }
@@ -162,7 +162,8 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
                             })
                         };
                         tr.observations[state.current_player].action = action.clone();
-                        tr.observations[state.current_player].pick.append(new_tiles.into_iter().map(|x| Some(x)).collect());
+                        let new_tiles_op: Vec<_> = new_tiles.into_iter().map(|x| Some(x)).collect();
+                        tr.observations[state.current_player].pick.clone_from(&new_tiles_op);
                         result.replace(tr);
                     },
                     Move::Placement(x) => {
