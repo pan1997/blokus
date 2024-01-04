@@ -178,31 +178,16 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
             unimplemented!("Pass for current player not implemented")
           }
           Move::Exchange(tiles) => {
-            // remove from hand
             for tile in tiles {
-              if *tile == Tile::nil() {
-                panic!("Cannot exchange nil tile");
-              }
-              for j in 0..6 {
-                if *tile == state.hands[state.current_player][j] {
-                  state.hands[state.current_player][j] = Tile::nil();
-                  break; // inner
-                }
-              }
+              state.remove_from_hand(tile, player)
             }
-            // put in bag
             state.insert_into_bag(tiles);
 
             // get new tiles
             let new_tiles = state.tiles_from_bag(tiles.len());
             state.remove_from_bag(&new_tiles);
             for tile in new_tiles.iter() {
-              for j in 0..6 {
-                if state.hands[state.current_player][j] == Tile::nil() {
-                  state.hands[state.current_player][j] = *tile;
-                  break; //inner
-                }
-              }
+              state.insert_into_hand(tile, player)
             }
             let mut tr = TranstitionResult {
               rewards: [0.0; N],
@@ -218,7 +203,17 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
               .clone_from(&new_tiles_op);
             result.replace(tr);
           }
-          Move::Placement(x) => {
+          Move::Placement(placement) => {
+            for (tile, x, y) in placement {
+              // remove from hand
+              state.remove_from_hand(tile, player);
+              // place on table
+              state.table.insert((*x, *y), *tile);
+              // update boundry
+              state.boundry.remove(&(*x, *y));
+              unimplemented!("complete")
+            }
+
             unimplemented!()
           }
         }
@@ -314,6 +309,30 @@ impl<const N: usize> State<N> {
     }
   }
 
+  fn remove_from_hand(&mut self, tile: &Tile, player: usize) {
+    if *tile == Tile::nil() {
+      panic!("Cannot remove nil tile from hand");
+    }
+    for j in 0..6 {
+      if self.hands[player][j] == *tile {
+        self.hands[player][j] = Tile::nil();
+        return;
+      }
+    }
+  }
+
+  fn insert_into_hand(&mut self, tile: &Tile, player: usize) {
+    if *tile == Tile::nil() {
+      panic!("Cannot insert nil tile to hand");
+    }
+    for j in 0..6 {
+      if self.hands[player][j] == Tile::nil() {
+        self.hands[player][j] = *tile;
+        return;
+      }
+    }
+  }
+
   fn insert_into_bag(&mut self, tiles: &[Tile]) {
     for tile in tiles {
       if tile.shape != 0 && tile.color != 0 {
@@ -353,7 +372,10 @@ impl<const N: usize> State<N> {
   }
 
   fn compute_table_boundry(&mut self) {
-    unimplemented!("todo");
+    self.boundry.clear();
+    for (k, v) in self.table.iter() {
+        unimplemented!("todo");
+    }
   }
 }
 
@@ -424,7 +446,8 @@ impl Tile {
 
 #[cfg(test)]
 mod tests {
-  use super::{State, Tile};
+  use ai::MaPomdp;
+use super::{State, Tile, Qwirkle};
 
   #[test]
   fn test_tile_display() {
@@ -442,5 +465,17 @@ mod tests {
     let mut state = State::<4>::default();
     state.initialize_hands();
     println!("{state}");
+  }
+
+  #[test]
+  fn test_move_gen() {
+    let g = Qwirkle::<4>;
+    let agent = 0;
+    let o_seq = g.start(agent);
+    let sr = g.sample(&o_seq, agent);
+    let state = sr.state;
+    let keys = sr.sample_keys;
+    println!("{state}");
+    println!("keys: {keys:?}");
   }
 }
