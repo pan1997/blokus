@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use ai::{MaMdp, TranstitionResult};
+use rustyai::{MaMdp, TranstitionResult};
 use rand::{seq::IteratorRandom, Rng};
 
 pub struct Tzf8;

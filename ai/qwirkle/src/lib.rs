@@ -4,7 +4,7 @@ use std::{
   fmt::{Debug, Display},
 };
 
-use ai::{MaPomdp, SampleResult, TranstitionResult};
+use rustyai::{MaPomdp, SampleResult, TranstitionResult};
 use colored::Colorize;
 use itertools::Itertools;
 use rand::seq::IteratorRandom;
@@ -172,7 +172,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
     &self,
     state: &mut State<N>,
     joint_action: &[Move; N],
-  ) -> ai::TranstitionResult<Observation, N> {
+  ) -> rustyai::TranstitionResult<Observation, N> {
     let mut result = None;
     for (player, action) in joint_action.iter().enumerate() {
       if player == state.current_player {

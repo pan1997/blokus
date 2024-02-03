@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
-use ai::{MaMdp, TranstitionResult};
-use Color::{Blue, Red};
+use rustyai::{MaMdp, TranstitionResult};
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

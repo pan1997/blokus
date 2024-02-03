@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use ai::{
+use rustyai::{
   search::{
     bandits::Uct,
     eval::{RandomRolloutEval, ZeroEval},

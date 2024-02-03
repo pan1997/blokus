@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 colored = "*"
 rand = "*"
-ai = {path = "../"}
+rustyai = {path = "../rustyai"}
 itertools = "*"
