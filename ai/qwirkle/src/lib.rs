@@ -214,10 +214,29 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
               state.table.insert((*x, *y), *tile);
               // update boundry
               state.boundry.remove(&(*x, *y));
-              unimplemented!("complete")
             }
 
-            unimplemented!()
+            // get new tiles
+            let new_tiles = state.tiles_from_bag(placement.len());
+            state.remove_from_bag(&new_tiles);
+            for tile in new_tiles.iter() {
+              insert_into_hand(&mut state.hands[player], tile)
+            }
+
+
+            let mut tr = TranstitionResult {
+              rewards: [0.0; N],
+              observations: [0; N].map(|ix| Observation {
+                pick: vec![None; placement.len()],
+                action: Move::Pass,
+              }),
+            };
+            tr.observations[state.current_player].action = action.clone();
+            let new_tiles_op: Vec<_> = new_tiles.into_iter().map(|x| Some(x)).collect();
+            tr.observations[state.current_player]
+                .pick
+                .clone_from(&new_tiles_op);
+            result.replace(tr);
           }
         }
       } else if *action != Move::Pass {
