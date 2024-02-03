@@ -76,6 +76,41 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
     }
   }
 
+  fn sample(
+    &self,
+    observation_seq: &ObservationSeq,
+    agent: usize,
+  ) -> SampleResult<State<N>, [Tile; 6], N> {
+    if agent != observation_seq.player {
+      panic!("Invalid agent sampling")
+    }
+    let mut state = State::default();
+    state.current_player = observation_seq.player_to_move;
+
+    state.table = observation_seq.table.clone();
+    state.remove_from_bag(&state.table.values().map(|x| *x).collect_vec());
+
+    for player in 0..N {
+      let tiles = if player == agent {
+        observation_seq.hand.clone()
+      } else {
+        state.tiles_from_bag(6).try_into().unwrap()
+      };
+      state.remove_from_bag(&tiles);
+      for ix in 0..6 {
+        state.hands[player][ix] = tiles[ix]
+      }
+    }
+
+    state.compute_table_boundry();
+
+    let hands = state.hands.clone();
+    SampleResult {
+      state,
+      sample_keys: hands,
+    }
+  }
+
   fn actions(&self, state: &State<N>, agent: usize) -> Vec<Move> {
     let mut result = vec![];
     if state.current_player == agent {
@@ -133,49 +168,6 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
     result
   }
 
-  fn sample(
-    &self,
-    observation_seq: &ObservationSeq,
-    agent: usize,
-  ) -> SampleResult<State<N>, [Tile; 6], N> {
-    if agent != observation_seq.player {
-      panic!("Invalid agent sampling")
-    }
-    let mut state = State::default();
-    state.current_player = observation_seq.player_to_move;
-
-    state.table = observation_seq.table.clone();
-    state.remove_from_bag(&state.table.values().map(|x| *x).collect_vec());
-
-    for player in 0..N {
-      let tiles = if player == agent {
-        observation_seq.hand.clone()
-      } else {
-        state.tiles_from_bag(6).try_into().unwrap()
-      };
-      state.remove_from_bag(&tiles);
-      for ix in 0..6 {
-        state.hands[player][ix] = tiles[ix]
-      }
-    }
-
-    state.compute_table_boundry();
-
-    let hands = state.hands.clone();
-    SampleResult {
-      state,
-      sample_keys: hands,
-    }
-  }
-
-  fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation) {
-    if observation_seq.player == agent {
-      unimplemented!("implement this")
-    } else {
-      unimplemented!("update table")
-    }
-  }
-
   fn transition(
     &self,
     state: &mut State<N>,
@@ -190,7 +182,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
           }
           Move::Exchange(tiles) => {
             for tile in tiles {
-              state.remove_from_hand(tile, player)
+              remove_from_hand(&mut state.hands[player], tile)
             }
             state.insert_into_bag(tiles);
 
@@ -198,7 +190,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
             let new_tiles = state.tiles_from_bag(tiles.len());
             state.remove_from_bag(&new_tiles);
             for tile in new_tiles.iter() {
-              state.insert_into_hand(tile, player)
+               insert_into_hand(&mut state.hands[player], tile)
             }
             let mut tr = TranstitionResult {
               rewards: [0.0; N],
@@ -217,7 +209,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
           Move::Placement(placement) => {
             for (tile, x, y) in placement {
               // remove from hand
-              state.remove_from_hand(tile, player);
+              remove_from_hand(&mut state.hands[player], tile);
               // place on table
               state.table.insert((*x, *y), *tile);
               // update boundry
@@ -233,6 +225,39 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
       }
     }
     result.unwrap()
+  }
+
+  fn append(&self, observation_seq: &mut ObservationSeq, agent: usize, obs: Observation) {
+    match obs.action {
+      Move::Exchange(tiles) => {
+        if agent != observation_seq.player {
+          panic!("Exchange moves seen as pass for other players")
+        }
+        for tile in tiles {
+          remove_from_hand(&mut observation_seq.hand, &tile);
+          // no change to table
+        }
+      }
+      Move::Pass => {
+        // do nothing
+      }
+      Move::Placement(placements) => {
+        // place on table
+        // remove from hand if current player
+
+        for (tile, x, y) in placements {
+          observation_seq.table.insert((x, y), tile);
+          if observation_seq.player_to_move == agent {
+            remove_from_hand(&mut observation_seq.hand, &tile);
+          }
+        }
+      }
+    }
+
+    observation_seq.player_to_move += 1;
+    if observation_seq.player_to_move == N {
+      observation_seq.player_to_move = 0;
+    }
   }
 }
 
@@ -265,13 +290,6 @@ impl<const N: usize> State<N> {
       for ix in 0..6 {
         self.hands[player][ix] = tiles[ix]
       }
-    }
-  }
-
-  fn next_player(&mut self) {
-    self.current_player += 1;
-    if self.current_player >= N {
-      self.current_player = 0;
     }
   }
 
@@ -320,30 +338,6 @@ impl<const N: usize> State<N> {
     }
   }
 
-  fn remove_from_hand(&mut self, tile: &Tile, player: usize) {
-    if *tile == Tile::nil() {
-      panic!("Cannot remove nil tile from hand");
-    }
-    for j in 0..6 {
-      if self.hands[player][j] == *tile {
-        self.hands[player][j] = Tile::nil();
-        return;
-      }
-    }
-  }
-
-  fn insert_into_hand(&mut self, tile: &Tile, player: usize) {
-    if *tile == Tile::nil() {
-      panic!("Cannot insert nil tile to hand");
-    }
-    for j in 0..6 {
-      if self.hands[player][j] == Tile::nil() {
-        self.hands[player][j] = *tile;
-        return;
-      }
-    }
-  }
-
   fn insert_into_bag(&mut self, tiles: &[Tile]) {
     for tile in tiles {
       if tile.shape != 0 && tile.color != 0 {
@@ -370,6 +364,38 @@ impl<const N: usize> State<N> {
     }
   }
 }
+
+fn remove_from_hand(hand: &mut [Tile; 6], tile: &Tile) {
+  if *tile == Tile::nil() {
+    panic!("Cannot remove nil tile from hand");
+  }
+  for j in 0..6 {
+    if hand[j] == *tile {
+      hand[j] = Tile::nil();
+      return;
+    }
+  }
+}
+
+fn insert_into_hand(hand: &mut [Tile; 6], tile: &Tile) {
+  if *tile == Tile::nil() {
+    panic!("Cannot insert nil tile to hand");
+  }
+  for j in 0..6 {
+    if hand[j] == Tile::nil() {
+      hand[j] = *tile;
+      return;
+    }
+  }
+}
+
+fn next_player(player: &mut usize, player_count: usize) {
+  *player += 1;
+  if *player >= player_count {
+    *player = 0;
+  }
+}
+
 
 impl Display for Tile {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -485,7 +511,7 @@ mod tests {
     let ac_0 = g.actions(&state, 0);
     let ac_1 = g.actions(&state, 1);
 
-    assert!(ac_1.len() == 1);
+    assert_eq!(ac_1.len(), 1);
     assert_eq!(ac_1[0], Move::Pass);
 
     println!("{state}");

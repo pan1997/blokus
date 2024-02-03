@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/blokus/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/chess_/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/connect4/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/connection/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/qwirkle/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tzf8/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
