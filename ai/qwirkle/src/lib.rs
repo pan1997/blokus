@@ -476,7 +476,7 @@ impl Tile {
 mod tests {
   use itertools::assert_equal;
   use rand::seq::SliceRandom;
-  use ai::MaPomdp;
+  use rustyai::MaPomdp;
 
   use super::{Move, Qwirkle, State, Tile};
 

@@ -169,7 +169,7 @@ impl Display for Color {
 mod tests {
   use std::fs::File;
 
-  use ai::search::{
+  use rustyai::search::{
     bandits::Random,
     eval::{RandomRolloutEval, ZeroEval},
     forest::{refcnt_forest::Node, TreeNode, TreeNodePtr},

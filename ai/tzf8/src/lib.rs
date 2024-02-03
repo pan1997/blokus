@@ -286,7 +286,7 @@ impl Debug for State {
 mod tests {
   use std::fs::File;
 
-  use ai::search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Search, Uct};
+  use rustyai::search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Search, Uct};
 
   use super::*;
 
