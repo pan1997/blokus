@@ -38,7 +38,7 @@ impl MaPomdp<ObservationSeq, (), Observation, State, Action, 1> for StaticMpomdp
   }
 
   // obs contains all the details that can be known to the agent, including the action taken
-  fn append(&self, _observation_seq: &mut ObservationSeq, agent: usize, _obs: Observation) {
+  fn append(&self, _observation_seq: &mut ObservationSeq, agent: usize, _obs: &Observation) {
     assert_eq!(agent, 0, "Invalid Agent: {agent}");
     //observation_seq.append(obs)
     unimplemented!()

@@ -45,7 +45,7 @@ enum Move {
   Exchange(Vec<Tile>),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 struct Observation {
   // all players see the move if it's a placement move
   // for exchange moves, players only see Pass here,
@@ -474,6 +474,8 @@ impl Tile {
 
 #[cfg(test)]
 mod tests {
+  use itertools::assert_equal;
+  use rand::seq::SliceRandom;
   use ai::MaPomdp;
 
   use super::{Move, Qwirkle, State, Tile};
@@ -498,7 +500,7 @@ mod tests {
   }
 
   #[test]
-  fn test_qwirkle() {
+  fn test_qwirkle_basic() {
     let g = Qwirkle::<2>;
     let agent = 0;
     let o_seq = g.start(agent);
@@ -517,5 +519,39 @@ mod tests {
     println!("{state}");
     println!("a0: {ac_0:?}");
     println!("a1: {ac_1:?}");
+  }
+
+  #[test]
+  fn test_qwirkle() {
+    let g = Qwirkle::<2>;
+
+    let agent = 0;
+    let mut o_seq = g.start(agent);
+
+    let sample_result = g.sample(&o_seq, agent);
+    let mut hidden_state = sample_result.state;
+
+    while true {
+      println!("observation Seq: \n{o_seq:?}");
+      println!("Hidden state: \n{hidden_state}");
+      let actions: [Vec<Move>; 2] = [g.actions(&hidden_state, 0), g.actions(&hidden_state, 1)];
+      if actions[0].is_empty() || actions[1].is_empty() {
+        println!("Game over");
+        // assert both empty
+        assert!(actions[0].is_empty());
+        assert!(actions[1].is_empty());
+        break;
+      }
+
+      let current_player = hidden_state.current_player;
+      let selected_action = actions[current_player].choose(&mut rand::thread_rng()).unwrap();
+      let mut joint_action = [Move::Pass, Move::Pass];
+      println!("Selected Action: {selected_action:?}");
+      joint_action[current_player] = selected_action.clone();
+
+      let tr = g.transition(&mut hidden_state, &joint_action);
+      println!("Transition rewards: {:?}, result: {:?}", tr.rewards, tr.observations);
+      g.append(&mut o_seq, current_player, tr.observations[agent].clone());
+    }
   }
 }
