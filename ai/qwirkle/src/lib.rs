@@ -147,6 +147,10 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
               for tile in state.hands[state.current_player] {
                 if state.is_placement_legal(cell, tile) {
 
+                  let tiles = vec![tile];
+                  for dir in DIRECTIONS {
+
+                  }
                   // todo: more than one tile
                   result.push(Move::Placement(vec![(tile, cell.0, cell.1)]));
                 }
