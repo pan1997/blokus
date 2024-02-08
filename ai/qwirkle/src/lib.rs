@@ -3,13 +3,14 @@ use std::{
   collections::{BTreeMap, BTreeSet},
   fmt::{Debug, Display},
 };
+use std::os::macos::raw::stat;
 
 use rustyai::{MaPomdp, SampleResult, TranstitionResult};
 use colored::Colorize;
 use itertools::Itertools;
 use rand::seq::IteratorRandom;
 
-struct Qwirkle<const N: usize>;
+pub(crate) struct Qwirkle<const N: usize>;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Tile {
@@ -24,7 +25,6 @@ struct State<const N: usize> {
   // bag.. empty tiles moved to right
   hands: [[Tile; 6]; N],
   table: BTreeMap<(i16, i16), Tile>,
-  boundry: BTreeSet<(i16, i16)>,
   bag: BTreeMap<Tile, u8>,
   bag_size: usize,
 }
@@ -102,8 +102,6 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
       }
     }
 
-    state.compute_table_boundry();
-
     let hands = state.hands.clone();
     SampleResult {
       state,
@@ -138,20 +136,22 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         // iterate over the boundry of filled cells
         //   iterate over the tiles in hand
         //     check if placing this tile on this cell is legal (either shape or color matches on both horizontal & vertical, with no duplicates)
-        //       if legal
-        //          iterate over directions
-        //            if the table is empty in this direction,
-        /*
-        for (x, y) in state.boundry {
-            for tile in state.hands[agent] {
-                if state.is_tile_legal((x, y), tile) {
-                    for (dx, dy) in DIRECTIONS {
 
-                    }
+
+        for (x, y) in state.table.keys() {
+          for direction in DIRECTIONS {
+            let cell = (*x + direction.0, *y + direction.1);
+            if !state.table.contains_key(&cell) {
+              for tile in state.hands[state.current_player] {
+                if state.is_placement_legal(cell, tile) {
+
+                  // todo: more than one tile
+                  result.push(Move::Placement(vec![(tile, cell.0, cell.1)]));
                 }
+              }
             }
+          }
         }
-        todo!("complete")*/
 
         // exchanges
         for combination in state.hands[state.current_player]
@@ -212,8 +212,6 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
               remove_from_hand(&mut state.hands[player], tile);
               // place on table
               state.table.insert((*x, *y), *tile);
-              // update boundry
-              state.boundry.remove(&(*x, *y));
             }
 
             // get new tiles
@@ -286,7 +284,6 @@ impl<const N: usize> Default for State<N> {
       current_player: 0,
       hands: [[Tile::default(); 6]; N],
       table: Default::default(),
-      boundry: Default::default(),
       bag: Default::default(),
       bag_size: 108,
     };
@@ -369,18 +366,64 @@ impl<const N: usize> State<N> {
     }
   }
 
-  fn is_tile_legal(&self, (x, y): (i16, i16), tile: Tile) -> bool {
-    if !self.boundry.contains(&(x, y)) {
-      return false;
-    }
-    true
-  }
+  fn is_placement_legal(&self, (x, y): (i16, i16), tile: Tile) -> bool {
+    // placement is legal iff
+    // 1. cell is originally empty
+    // 2. both horizontal and vertical lines including this tile are valid
 
-  fn compute_table_boundry(&mut self) {
-    self.boundry.clear();
-    for (k, v) in self.table.iter() {
-      unimplemented!("todo");
+    if self.table.contains_key(&(x, y)) {
+      return false
     }
+
+    {
+      let mut horizontal = vec![];
+      for ix in 1..7 {
+        let cell = (x + ix, y);
+        let tile_opt = self.table.get(&cell);
+        if tile_opt.is_none() {
+          break;
+        }
+        horizontal.push(tile_opt.unwrap().clone())
+      }
+      for ix in 1..7 {
+        let cell = (x - ix, y);
+        let tile_opt = self.table.get(&cell);
+        if tile_opt.is_none() {
+          break;
+        }
+        // order doesn't matter
+        horizontal.push(tile_opt.unwrap().clone())
+      }
+      if !Tile::valid(&horizontal) {
+        return false
+      }
+    }
+
+    {
+      let mut vertical = vec![];
+      for ix in 1..7 {
+        let cell = (x, y + ix);
+        let tile_opt = self.table.get(&cell);
+        if tile_opt.is_none() {
+          break;
+        }
+        vertical.push(tile_opt.unwrap().clone())
+      }
+      for ix in 1..7 {
+        let cell = (x, y - ix);
+        let tile_opt = self.table.get(&cell);
+        if tile_opt.is_none() {
+          break;
+        }
+        // order doesn't matter
+        vertical.push(tile_opt.unwrap().clone())
+      }
+      if !Tile::valid(&vertical) {
+        return false
+      }
+    }
+
+    return true
   }
 }
 
@@ -424,8 +467,8 @@ impl Display for Tile {
       2 => "✖",
       3 => "◆",
       4 => "■",
-      5 => "🟏",
-      6 => "🞧",
+      5 => "+",//"🟏",
+      6 => "~",//"🞧",
       _ => panic!("djdjd"),
     };
     let cc = match self.color {
@@ -550,10 +593,11 @@ mod tests {
     let sample_result = g.sample(&o_seq, agent);
     let mut hidden_state = sample_result.state;
 
-    while true {
+    loop {
       println!("observation Seq: \n{o_seq:?}");
       println!("Hidden state: \n{hidden_state}");
       let actions: [Vec<Move>; 2] = [g.actions(&hidden_state, 0), g.actions(&hidden_state, 1)];
+      println!("Actions: {:?}", actions);
       if actions[0].is_empty() || actions[1].is_empty() {
         println!("Game over");
         // assert both empty
