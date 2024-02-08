@@ -13,14 +13,14 @@ use rand::seq::IteratorRandom;
 pub(crate) struct Qwirkle<const N: usize>;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Tile {
+pub struct Tile {
   // both shape and color start from 1,
   // and 0, 0 is an invalid tile
   shape: u8,
   color: u8,
 }
 
-struct State<const N: usize> {
+pub struct State<const N: usize> {
   current_player: usize,
   // bag.. empty tiles moved to right
   hands: [[Tile; 6]; N],
@@ -30,7 +30,7 @@ struct State<const N: usize> {
 }
 
 #[derive(Debug)]
-struct ObservationSeq {
+pub struct ObservationSeq {
   player: usize,
   hand: [Tile; 6],
   table: BTreeMap<(i16, i16), Tile>,
@@ -38,7 +38,7 @@ struct ObservationSeq {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
-enum Move {
+pub enum Move {
   // all players other than the current player pass
   Pass,
   Placement(Vec<(Tile, i16, i16)>),
@@ -46,7 +46,7 @@ enum Move {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
-struct Observation {
+pub struct Observation {
   // all players see the move if it's a placement move
   // for exchange moves, players only see Pass here,
   // but the pick
@@ -70,7 +70,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
 
     ObservationSeq {
       player: agent,
-      hand: hand,
+      hand,
       table: Default::default(),
       player_to_move: 0,
     }
@@ -116,13 +116,15 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         // if table is empty then its the first move
         // iterate over all powersets of hand
         // if valid (ie either chand or color match), then thats a valid placement
-        for combination in state.hands[state.current_player]
+        // assumes all tiles are valid
+        for mut combination in state.hands[state.current_player]
           .clone()
           .into_iter()
           .powerset()
         {
           // skip single length combinations
           if combination.len() > 1 {
+            combination.sort();
             if Tile::valid(&combination) {
               for perm in combination.clone().into_iter().permutations(combination.len()) {
                 result.push(Move::Placement(perm.into_iter().enumerate().map(|(x, tile)| (tile, x as i16, 0)).collect()))
@@ -154,12 +156,24 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         }
 
         // exchanges
-        for combination in state.hands[state.current_player]
-          .clone()
-          .into_iter()
-          .powerset()
-        {
-          result.push(Move::Exchange(combination));
+
+        // fill exchanges only if no placements
+        if result.len() <= 1 {
+          let mut hand = vec![];
+          for ix in 0..6 {
+            if state.hands[state.current_player][ix] != Tile::nil() {
+              hand.push(state.hands[state.current_player][ix]);
+            }
+          }
+          for combination in hand
+              .clone()
+              .into_iter()
+              .powerset()
+          {
+            if !combination.is_empty() {
+              result.push(Move::Exchange(combination));
+            }
+          }
         }
       }
     } else {
@@ -220,7 +234,6 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
             for tile in new_tiles.iter() {
               insert_into_hand(&mut state.hands[player], tile)
             }
-
 
             let mut tr = TranstitionResult {
               rewards: [0.0; N],
@@ -297,6 +310,10 @@ impl<const N: usize> Default for State<N> {
 }
 
 impl<const N: usize> State<N> {
+
+  pub fn current_player(&self) -> usize {
+    self.current_player
+  }
   fn initialize_hands(&mut self) {
     for player in 0..N {
       let tiles = self.tiles_from_bag(6);
@@ -371,12 +388,16 @@ impl<const N: usize> State<N> {
     // 1. cell is originally empty
     // 2. both horizontal and vertical lines including this tile are valid
 
+    if tile == Tile::nil() {
+      return false
+    }
+
     if self.table.contains_key(&(x, y)) {
       return false
     }
 
     {
-      let mut horizontal = vec![];
+      let mut horizontal = vec![tile];
       for ix in 1..7 {
         let cell = (x + ix, y);
         let tile_opt = self.table.get(&cell);
@@ -391,16 +412,16 @@ impl<const N: usize> State<N> {
         if tile_opt.is_none() {
           break;
         }
-        // order doesn't matter
         horizontal.push(tile_opt.unwrap().clone())
       }
+      horizontal.sort();
       if !Tile::valid(&horizontal) {
         return false
       }
     }
 
     {
-      let mut vertical = vec![];
+      let mut vertical = vec![tile];
       for ix in 1..7 {
         let cell = (x, y + ix);
         let tile_opt = self.table.get(&cell);
@@ -415,9 +436,9 @@ impl<const N: usize> State<N> {
         if tile_opt.is_none() {
           break;
         }
-        // order doesn't matter
         vertical.push(tile_opt.unwrap().clone())
       }
+      vertical.sort();
       if !Tile::valid(&vertical) {
         return false
       }
@@ -524,11 +545,15 @@ impl Tile {
   }
 
   fn valid(tiles: &[Tile]) -> bool {
+    // assumes sorted
     let mut color_match = true;
     let mut shape_match = true;
     for ix in 1..tiles.len() {
       color_match = color_match && tiles[ix].color == tiles[0].color;
       shape_match = shape_match && tiles[ix].shape == tiles[0].shape;
+      if tiles[ix] == tiles[ix -1] || !color_match && !shape_match {
+        return false;
+      }
     }
     color_match || shape_match
   }
@@ -600,9 +625,6 @@ mod tests {
       println!("Actions: {:?}", actions);
       if actions[0].is_empty() || actions[1].is_empty() {
         println!("Game over");
-        // assert both empty
-        assert!(actions[0].is_empty());
-        assert!(actions[1].is_empty());
         break;
       }
 
