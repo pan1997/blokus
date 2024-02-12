@@ -3,6 +3,7 @@ use std::{
   collections::{BTreeMap, BTreeSet},
   fmt::{Debug, Display},
 };
+use std::fmt::write;
 use std::os::macos::raw::stat;
 
 use rustyai::{MaPomdp, SampleResult, TranstitionResult};
@@ -22,7 +23,7 @@ pub struct Tile {
 
 pub struct State<const N: usize> {
   current_player: usize,
-  // bag.. empty tiles moved to right
+  // empty tiles moved to right
   hands: [[Tile; 6]; N],
   table: BTreeMap<(i16, i16), Tile>,
   bag: BTreeMap<Tile, u8>,
@@ -133,8 +134,12 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
           }
         }
       } else {
-        // todo!("fill in placement computation");
-
+        let mut hand = vec![];
+        for ix in 0..6 {
+          if state.hands[state.current_player][ix] != Tile::nil() {
+            hand.push(state.hands[state.current_player][ix]);
+          }
+        }
         // iterate over the boundry of filled cells
         //   iterate over the tiles in hand
         //     check if placing this tile on this cell is legal (either shape or color matches on both horizontal & vertical, with no duplicates)
@@ -142,17 +147,33 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
 
         for (x, y) in state.table.keys() {
           for direction in DIRECTIONS {
-            let cell = (*x + direction.0, *y + direction.1);
-            if !state.table.contains_key(&cell) {
-              for tile in state.hands[state.current_player] {
-                if state.is_placement_legal(cell, tile) {
-
-                  let tiles = vec![tile];
-                  for dir in DIRECTIONS {
-
+            let starting_cell = (*x + direction.0, *y + direction.1);
+            if !state.table.contains_key(&starting_cell) {
+              'LOOP1: for dir in DIRECTIONS {
+                for len in 1..(hand.len()+1) {
+                  let mut cells = vec![(0, 0); len];
+                  for ix in 0..len {
+                    cells[ix].0 = starting_cell.0 + dir.0 * ix as i16;
+                    cells[ix].1 = starting_cell.1 + dir.1 * ix as i16;
                   }
-                  // todo: more than one tile
-                  result.push(Move::Placement(vec![(tile, cell.0, cell.1)]));
+                  // check if all cells are empty
+                  for cell in cells.iter() {
+                    if state.table.contains_key(cell) {
+                      // next direction
+                      continue 'LOOP1;
+                    }
+                  }
+
+                  // iterate over all combinations of len tiles from hand
+                  for tile_set in hand.clone().into_iter().combinations(len) {
+                    let mut placement = vec![];
+                    for ix in 0..len {
+                      placement.push((tile_set[ix], cells[ix].0, cells[ix].1));
+                    }
+                    if state.is_placement_legal(&placement) {
+                      result.push(Move::Placement(placement));
+                    }
+                  }
                 }
               }
             }
@@ -163,12 +184,6 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
 
         // fill exchanges only if no placements
         if result.len() <= 1 {
-          let mut hand = vec![];
-          for ix in 0..6 {
-            if state.hands[state.current_player][ix] != Tile::nil() {
-              hand.push(state.hands[state.current_player][ix]);
-            }
-          }
           for combination in hand
               .clone()
               .into_iter()
@@ -190,7 +205,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
     &self,
     state: &mut State<N>,
     joint_action: &[Move; N],
-  ) -> rustyai::TranstitionResult<Observation, N> {
+  ) -> TranstitionResult<Observation, N> {
     let mut result = None;
     for (player, action) in joint_action.iter().enumerate() {
       if player == state.current_player {
@@ -258,6 +273,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         panic!("All players other than current should pass")
       }
     }
+    next_player(&mut state.current_player, N);
     result.unwrap()
   }
 
@@ -286,6 +302,12 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
           }
         }
       }
+    }
+
+    for tk in obs.pick {
+      tk.map(|tile| {
+        insert_into_hand(&mut observation_seq.hand, &tile);
+      });
     }
 
     observation_seq.player_to_move += 1;
@@ -321,8 +343,8 @@ impl<const N: usize> State<N> {
   fn initialize_hands(&mut self) {
     for player in 0..N {
       let tiles = self.tiles_from_bag(6);
-      println!("bag:   {:?}", self.bag);
-      println!("tiles: {tiles:?}");
+      //println!("bag:   {:?}", self.bag);
+      //println!("tiles: {tiles:?}");
       self.remove_from_bag(&tiles);
       for ix in 0..6 {
         self.hands[player][ix] = tiles[ix]
@@ -387,68 +409,101 @@ impl<const N: usize> State<N> {
     }
   }
 
-  fn is_placement_legal(&self, (x, y): (i16, i16), tile: Tile) -> bool {
+  fn is_placement_legal(&self, placement: &Vec<(Tile, i16, i16)>) -> bool {
+    let tile_from_placement = |x, y| {
+      for (p, ax, ay) in placement {
+        if *ax == x && *ay == y {
+          return Some(p);
+        }
+      }
+      return None
+    };
+
     // placement is legal iff
     // 1. cell is originally empty
     // 2. both horizontal and vertical lines including this tile are valid
-
-    if tile == Tile::nil() {
-      return false
-    }
-
-    if self.table.contains_key(&(x, y)) {
-      return false
-    }
-
-    {
-      let mut horizontal = vec![tile];
-      for ix in 1..7 {
-        let cell = (x + ix, y);
-        let tile_opt = self.table.get(&cell);
-        if tile_opt.is_none() {
-          break;
-        }
-        horizontal.push(tile_opt.unwrap().clone())
-      }
-      for ix in 1..7 {
-        let cell = (x - ix, y);
-        let tile_opt = self.table.get(&cell);
-        if tile_opt.is_none() {
-          break;
-        }
-        horizontal.push(tile_opt.unwrap().clone())
-      }
-      horizontal.sort();
-      if !Tile::valid(&horizontal) {
+    for (tile, x, y) in placement {
+      if self.table.contains_key(&(*x, *y)) {
         return false
       }
-    }
 
-    {
-      let mut vertical = vec![tile];
-      for ix in 1..7 {
-        let cell = (x, y + ix);
-        let tile_opt = self.table.get(&cell);
-        if tile_opt.is_none() {
-          break;
+      {
+        let mut horizontal = vec![*tile];
+        for ix in 1..7 {
+          let cell = (x + ix, *y);
+          let tile_opt = self.table.get(&cell);
+          if tile_opt.is_none() {
+            // break if this tile is also not present in the current placement
+            let tile_opt1 = tile_from_placement(cell.0, cell.1);
+            if tile_opt1.is_none() {
+              break;
+            } else {
+              horizontal.push(tile_opt1.unwrap().clone())
+            }
+          } else {
+            horizontal.push(tile_opt.unwrap().clone())
+          }
         }
-        vertical.push(tile_opt.unwrap().clone())
-      }
-      for ix in 1..7 {
-        let cell = (x, y - ix);
-        let tile_opt = self.table.get(&cell);
-        if tile_opt.is_none() {
-          break;
+        for ix in 1..7 {
+          let cell = (x - ix, *y);
+          let tile_opt = self.table.get(&cell);
+          if tile_opt.is_none() {
+            // break if this tile is also not present in the current placement
+            let tile_opt1 = tile_from_placement(cell.0, cell.1);
+            if tile_opt1.is_none() {
+              break;
+            } else {
+              horizontal.push(tile_opt1.unwrap().clone())
+            }
+          } else {
+            horizontal.push(tile_opt.unwrap().clone())
+          }
         }
-        vertical.push(tile_opt.unwrap().clone())
+        horizontal.sort();
+        if !Tile::valid(&horizontal) {
+          return false
+        }
       }
-      vertical.sort();
-      if !Tile::valid(&vertical) {
-        return false
+
+      {
+        let mut vertical = vec![*tile];
+        for ix in 1..7 {
+          let cell = (*x, y + ix);
+          let tile_opt = self.table.get(&cell);
+          if tile_opt.is_none() {
+            // break if this tile is also not present in the current placement
+            let tile_opt1 = tile_from_placement(cell.0, cell.1);
+            if tile_opt1.is_none() {
+              break;
+            } else {
+              vertical.push(tile_opt1.unwrap().clone())
+            }
+          } else {
+            vertical.push(tile_opt.unwrap().clone())
+          }
+        }
+        for ix in 1..7 {
+          let cell = (*x, y - ix);
+          let tile_opt = self.table.get(&cell);
+          if tile_opt.is_none() {
+            // break if this tile is also not present in the current placement
+            let tile_opt1 = tile_from_placement(cell.0, cell.1);
+            if tile_opt1.is_none() {
+              break;
+            } else {
+              vertical.push(tile_opt1.unwrap().clone())
+            }
+          } else {
+            vertical.push(tile_opt.unwrap().clone())
+          }
+        }
+        vertical.sort();
+        if !Tile::valid(&vertical) {
+          return false
+        }
       }
     }
-
-    return true
+    return true;
   }
 }
 
@@ -519,17 +574,29 @@ impl Debug for Tile {
 impl<const N: usize> Display for State<N> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let (low_x, low_y, high_x, high_y) = self.bounding_rectangle();
-    for x in (low_x - 3)..(high_x + 4) {
-      for y in (low_y - 3)..(high_y + 4) {
+    for x in (low_x)..(high_x+1) {
+      for y in (low_y)..(high_y + 1) {
         let t = self
           .table
-          .get(&(x - low_x, y - low_y))
+          .get(&(x, y))
           .map(|x| *x)
           .unwrap_or_default();
         write!(f, "{t} ")?;
       }
-      writeln!(f, "|")?;
+      if x == 0 {
+        writeln!(f, "|--")?;
+      } else {
+        writeln!(f, "|")?;
+      }
     }
+    for y in low_y..(high_y + 1) {
+      if y == 0 {
+        write!(f, "+")?;
+      } else {
+        write!(f, " ")?;
+      }
+    }
+    writeln!(f)?;
     for player in 0..N {
       write!(f, "P{player} [")?;
       for t in self.hands[player].iter() {
@@ -565,7 +632,6 @@ impl Tile {
 
 #[cfg(test)]
 mod tests {
-  use itertools::assert_equal;
   use rand::seq::SliceRandom;
   use rustyai::MaPomdp;
 
@@ -586,6 +652,23 @@ mod tests {
   fn test_state_display() {
     let mut state = State::<4>::default();
     state.initialize_hands();
+    state.table.insert((0, 0), Tile {
+      shape: 1,
+      color: 1
+    });
+
+    state.table.insert((0, 1), Tile {
+      shape: 2,
+      color: 1
+    });
+    state.table.insert((0, 2), Tile {
+      shape: 3,
+      color: 1
+    });
+    state.table.insert((-1, -3), Tile {
+      shape: 1,
+      color: 2
+    });
     assert_eq!(state.bag_size, 108 - 4 * 6);
     println!("{state}");
   }
