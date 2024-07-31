@@ -3,8 +3,6 @@ use std::{
   collections::{BTreeMap, BTreeSet},
   fmt::{Debug, Display},
 };
-use std::fmt::write;
-use std::os::macos::raw::stat;
 
 use rustyai::{MaPomdp, SampleResult, TranstitionResult};
 use colored::Colorize;
