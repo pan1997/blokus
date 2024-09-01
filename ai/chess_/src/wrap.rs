@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use rustyai::{MaMdp, TranstitionResult};
 use chess::{Board, BoardStatus, ChessMove, Color, MoveGen};
+use rustyai::{MaMdp, TranstitionResult};
 
 pub struct Chess;
 

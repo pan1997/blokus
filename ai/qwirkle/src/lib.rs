@@ -4,10 +4,10 @@ use std::{
   fmt::{Debug, Display},
 };
 
-use rustyai::{MaPomdp, SampleResult, TranstitionResult};
 use colored::Colorize;
 use itertools::Itertools;
 use rand::seq::IteratorRandom;
+use rustyai::{MaPomdp, SampleResult, TranstitionResult};
 
 pub(crate) struct Qwirkle<const N: usize>;
 
@@ -125,8 +125,18 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
           if combination.len() > 1 {
             combination.sort();
             if Tile::valid(&combination) {
-              for perm in combination.clone().into_iter().permutations(combination.len()) {
-                result.push(Move::Placement(perm.into_iter().enumerate().map(|(x, tile)| (tile, x as i16, 0)).collect()))
+              for perm in combination
+                .clone()
+                .into_iter()
+                .permutations(combination.len())
+              {
+                result.push(Move::Placement(
+                  perm
+                    .into_iter()
+                    .enumerate()
+                    .map(|(x, tile)| (tile, x as i16, 0))
+                    .collect(),
+                ))
               }
             }
           }
@@ -142,13 +152,12 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
         //   iterate over the tiles in hand
         //     check if placing this tile on this cell is legal (either shape or color matches on both horizontal & vertical, with no duplicates)
 
-
         for (x, y) in state.table.keys() {
           for direction in DIRECTIONS {
             let starting_cell = (*x + direction.0, *y + direction.1);
             if !state.table.contains_key(&starting_cell) {
               'LOOP1: for dir in DIRECTIONS {
-                for len in 1..(hand.len()+1) {
+                for len in 1..(hand.len() + 1) {
                   let mut cells = vec![(0, 0); len];
                   for ix in 0..len {
                     cells[ix].0 = starting_cell.0 + dir.0 * ix as i16;
@@ -182,11 +191,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
 
         // fill exchanges only if no placements
         if result.len() <= 1 {
-          for combination in hand
-              .clone()
-              .into_iter()
-              .powerset()
-          {
+          for combination in hand.clone().into_iter().powerset() {
             if !combination.is_empty() {
               result.push(Move::Exchange(combination));
             }
@@ -221,7 +226,7 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
             let new_tiles = state.tiles_from_bag(tiles.len());
             state.remove_from_bag(&new_tiles);
             for tile in new_tiles.iter() {
-               insert_into_hand(&mut state.hands[player], tile)
+              insert_into_hand(&mut state.hands[player], tile)
             }
             let mut tr = TranstitionResult {
               rewards: [0.0; N],
@@ -262,8 +267,8 @@ impl<const N: usize> MaPomdp<ObservationSeq, [Tile; 6], Observation, State<N>, M
             tr.observations[state.current_player].action = action.clone();
             let new_tiles_op: Vec<_> = new_tiles.into_iter().map(|x| Some(x)).collect();
             tr.observations[state.current_player]
-                .pick
-                .clone_from(&new_tiles_op);
+              .pick
+              .clone_from(&new_tiles_op);
             result.replace(tr);
           }
         }
@@ -334,7 +339,6 @@ impl<const N: usize> Default for State<N> {
 }
 
 impl<const N: usize> State<N> {
-
   pub fn current_player(&self) -> usize {
     self.current_player
   }
@@ -414,7 +418,7 @@ impl<const N: usize> State<N> {
           return Some(p);
         }
       }
-      return None
+      return None;
     };
 
     // placement is legal iff
@@ -422,7 +426,7 @@ impl<const N: usize> State<N> {
     // 2. both horizontal and vertical lines including this tile are valid
     for (tile, x, y) in placement {
       if self.table.contains_key(&(*x, *y)) {
-        return false
+        return false;
       }
 
       {
@@ -459,7 +463,7 @@ impl<const N: usize> State<N> {
         }
         horizontal.sort();
         if !Tile::valid(&horizontal) {
-          return false
+          return false;
         }
       }
 
@@ -497,7 +501,7 @@ impl<const N: usize> State<N> {
         }
         vertical.sort();
         if !Tile::valid(&vertical) {
-          return false
+          return false;
         }
       }
     }
@@ -536,7 +540,6 @@ fn next_player(player: &mut usize, player_count: usize) {
   }
 }
 
-
 impl Display for Tile {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let c = match self.shape {
@@ -545,8 +548,8 @@ impl Display for Tile {
       2 => "✖",
       3 => "◆",
       4 => "■",
-      5 => "+",//"🟏",
-      6 => "~",//"🞧",
+      5 => "+", //"🟏",
+      6 => "~", //"🞧",
       _ => panic!("djdjd"),
     };
     let cc = match self.color {
@@ -572,13 +575,9 @@ impl Debug for Tile {
 impl<const N: usize> Display for State<N> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let (low_x, low_y, high_x, high_y) = self.bounding_rectangle();
-    for x in (low_x)..(high_x+1) {
+    for x in (low_x)..(high_x + 1) {
       for y in (low_y)..(high_y + 1) {
-        let t = self
-          .table
-          .get(&(x, y))
-          .map(|x| *x)
-          .unwrap_or_default();
+        let t = self.table.get(&(x, y)).map(|x| *x).unwrap_or_default();
         write!(f, "{t} ")?;
       }
       if x == 0 {
@@ -620,7 +619,7 @@ impl Tile {
     for ix in 1..tiles.len() {
       color_match = color_match && tiles[ix].color == tiles[0].color;
       shape_match = shape_match && tiles[ix].shape == tiles[0].shape;
-      if tiles[ix] == tiles[ix -1] || !color_match && !shape_match {
+      if tiles[ix] == tiles[ix - 1] || !color_match && !shape_match {
         return false;
       }
     }
@@ -650,23 +649,11 @@ mod tests {
   fn test_state_display() {
     let mut state = State::<4>::default();
     state.initialize_hands();
-    state.table.insert((0, 0), Tile {
-      shape: 1,
-      color: 1
-    });
+    state.table.insert((0, 0), Tile { shape: 1, color: 1 });
 
-    state.table.insert((0, 1), Tile {
-      shape: 2,
-      color: 1
-    });
-    state.table.insert((0, 2), Tile {
-      shape: 3,
-      color: 1
-    });
-    state.table.insert((-1, -3), Tile {
-      shape: 1,
-      color: 2
-    });
+    state.table.insert((0, 1), Tile { shape: 2, color: 1 });
+    state.table.insert((0, 2), Tile { shape: 3, color: 1 });
+    state.table.insert((-1, -3), Tile { shape: 1, color: 2 });
     assert_eq!(state.bag_size, 108 - 4 * 6);
     println!("{state}");
   }
@@ -714,13 +701,18 @@ mod tests {
       }
 
       let current_player = hidden_state.current_player;
-      let selected_action = actions[current_player].choose(&mut rand::thread_rng()).unwrap();
+      let selected_action = actions[current_player]
+        .choose(&mut rand::thread_rng())
+        .unwrap();
       let mut joint_action = [Move::Pass, Move::Pass];
       println!("Selected Action: {selected_action:?}");
       joint_action[current_player] = selected_action.clone();
 
       let tr = g.transition(&mut hidden_state, &joint_action);
-      println!("Transition rewards: {:?}, result: {:?}", tr.rewards, tr.observations);
+      println!(
+        "Transition rewards: {:?}, result: {:?}",
+        tr.rewards, tr.observations
+      );
       g.append(&mut o_seq, current_player, tr.observations[agent].clone());
     }
   }

@@ -1,9 +1,9 @@
 mod lib;
 
-use text_io::read;
-use lib::Qwirkle;
 use lib::Move;
+use lib::Qwirkle;
 use rustyai::MaPomdp;
+use text_io::read;
 
 fn main() {
   let game = Qwirkle::<2>;
@@ -22,7 +22,7 @@ fn main() {
         for ix in 0..actions.len() {
           println!("{ix} -> {:?}", actions[ix]);
         }
-      },
+      }
       "move" => {
         let m: usize = read!();
         let mut joint_action = [Move::Pass, Move::Pass];
@@ -31,7 +31,7 @@ fn main() {
         println!("rewards: {:?}", tr.rewards);
         println!("observations: {:?}", tr.observations);
       }
-      _ => println!("Invalid command")
+      _ => println!("Invalid command"),
     }
   }
   println!("Hello, world!");
