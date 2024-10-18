@@ -1,10 +1,23 @@
-use std::ops::{AddAssign, SubAssign};
+use std::{
+  any::TypeId,
+  fmt::{self, Debug, Display},
+  fs::File,
+  io::Write,
+  ops::{AddAssign, SubAssign},
+};
 
+use graphviz_rust::{
+  attributes::{bgcolor, EdgeAttributes, NodeAttributes},
+  dot_structures::{
+    Edge as GEdge, EdgeTy, Graph, Id, Node as GNode, NodeId as GNid, Port, Stmt, Vertex,
+  },
+  printer::{DotPrinter, PrinterContext},
+};
 use num_traits::Float;
 
-use crate::node::{NodeDeref, NodeLink, Trajectory};
+use crate::node::{DualType, Node, NodeLink, NodeStore, Trajectory};
 
-fn propogate<N, E, P, ND, R>(
+fn propogate<N, E, P, ND, R, K>(
   nd: &mut ND,
   mut trajectory: Trajectory<E, P, R>,
   last_node: P,
@@ -12,7 +25,7 @@ fn propogate<N, E, P, ND, R>(
 ) where
   P: NodeLink + Clone,
   E: Ord,
-  ND: NodeDeref<N, E, P, R>,
+  ND: NodeStore<N, E, P, R, K>,
   R: Float + AddAssign + SubAssign,
 {
   nd.deref_mut(&last_node).value.add_sample(value, 1);
@@ -106,4 +119,92 @@ where
       }
     }
   }
+}
+
+fn render<NS: NodeStore<N, E, P, R, K>, N, E: Ord + Debug, P: NodeLink + Debug, R: Display, K>(
+  node_store: &NS,
+  g: &mut Graph,
+  root: &P,
+  count: &mut u32,
+) -> GNid {
+  let id = *count;
+  *count += 1;
+  let label = node_label(node_store.deref(root));
+  let shape = if root.is_nil() {
+    graphviz_rust::attributes::shape::point
+  } else {
+    graphviz_rust::attributes::shape::plaintext
+  };
+  let n = GNode::new(
+    GNid(Id::Plain(format!("{id}")), None),
+    vec![NodeAttributes::label(label), NodeAttributes::shape(shape)],
+  );
+  g.add_stmt(Stmt::Node(n));
+
+  if !root.is_nil() {
+    let data = node_store.deref(root);
+    for (ix, o) in data.children.keys().enumerate() {
+      let edge = &data.children[o];
+      let cid = render(node_store, g, &edge.link, count);
+      let e = GEdge {
+        ty: EdgeTy::Pair(
+          Vertex::N(GNid(
+            Id::Plain(format!("{id}")),
+            Some(Port(Some(Id::Plain(format!("{ix}"))), None)),
+          )),
+          Vertex::N(cid),
+        ),
+        attributes: vec![], //vec![EdgeAttributes::label(format!("\"{o:?}\""))],
+      };
+      g.add_stmt(Stmt::Edge(e));
+    }
+  }
+
+  GNid(Id::Plain(format!("{id}")), None)
+}
+
+pub fn save<NS: NodeStore<N, E, P, R, K>, N, E: Ord + Debug, P: NodeLink + Debug, R: Display, K>(
+  node_store: &NS,
+  mut f: File,
+  root: &P,
+) {
+  let mut g = Graph::DiGraph {
+    id: Id::Plain("T".to_string()),
+    strict: false,
+    stmts: vec![],
+  };
+  let mut count = 0;
+  render(node_store, &mut g, root, &mut count);
+  let mut ctx = PrinterContext::default();
+  write!(f, "{}", g.print(&mut ctx)).unwrap();
+}
+
+fn node_label<N, E: Ord + Debug, P, R: Display>(node: &Node<N, E, P, R>) -> String {
+  let out_row = if node.children.is_empty() {
+    "".to_string()
+  } else {
+    let mut bgcolor = "gold";
+    let mut result =
+      format!("<table bgcolor=\"{bgcolor}\" border=\"0\" cellspacing=\"0\" cellborder=\"1\"><tr>")
+        .to_string();
+    for (ix, o) in node.children.keys().enumerate() {
+      let e = &node.children[o];
+      result.push_str(&format!(
+        "<td port=\"{ix}\">{o:?}<BR/>{}<BR/>{}</td>",
+        e.select_count, e.value.mean
+      ));
+    }
+    result.push_str("</tr></table>");
+    result
+  };
+  format!(
+    r#"<
+<table border="0" cellspacing="0" cellborder="1">
+<tr><td>{}</td></tr>
+<tr><td>{:.4}, {}</td></tr>
+<tr><td>{out_row}</td></tr>
+</table>
+    >"#,
+    node.select_count, node.value.mean, node.value.count,
+  )
 }

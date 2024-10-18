@@ -24,9 +24,10 @@ pub trait NodeLink: Sized {
   fn nil() -> Self;
 }
 
-pub trait NodeDeref<N, E, P: NodeLink, R> {
+pub trait NodeStore<N, E, P: NodeLink, R, K> {
   fn deref(&self, link: &P) -> &Node<N, E, P, R>;
   fn deref_mut(&mut self, link: &P) -> &mut Node<N, E, P, R>;
+  fn new_node(&mut self, data: N, key: Option<&K>) -> P;
 }
 
 impl<N, E, P, R> Node<N, E, P, R>
@@ -52,6 +53,19 @@ where
       })),
     }
   }
+
+  pub fn set_outgoing(&mut self, outgoing: Vec<E>) {
+    self.children = BTreeMap::from_iter(outgoing.into_iter().map(|e| {
+      (
+        e,
+        Edge {
+          select_count: 0,
+          value: RunningAverage::new(),
+          link: P::nil(),
+        },
+      )
+    }));
+  }
 }
 
 impl<N, E, P: NodeLink, R> Default for Node<N, E, P, R>
@@ -72,11 +86,15 @@ pub struct Step<E, P, R> {
 }
 pub struct Trajectory<E, P, R> {
   pub steps: Vec<Step<E, P, R>>,
+  pub last_node: P,
 }
 
-impl<E, P, R> Trajectory<E, P, R> {
+impl<E, P: NodeLink, R> Trajectory<E, P, R> {
   pub fn new() -> Self {
-    Self { steps: vec![] }
+    Self {
+      steps: vec![],
+      last_node: P::nil(),
+    }
   }
 }
 
@@ -84,7 +102,7 @@ pub struct MultiTreeTrajectory<const N: usize, E, P, R> {
   pub trajectories: [Trajectory<E, P, R>; N],
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 pub enum DualType<A, B> {
   A(A),
   B(B),

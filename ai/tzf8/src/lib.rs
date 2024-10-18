@@ -50,6 +50,7 @@ impl MaMdp<State, Move, Observation, 1> for Tzf8 {
     result.add_random_tile();
     result
   }
+
   fn transition(
     &self,
     state: &mut State,

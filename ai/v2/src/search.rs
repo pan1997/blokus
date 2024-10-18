@@ -1,174 +1,191 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::AddAssign};
 
 use num_traits::Float;
 
 use crate::{
-  node::{DualType, NodeDeref, NodeLink, Step, Trajectory},
+  node::{DualType, Edge, NodeLink, NodeStore, Step, Trajectory},
+  util::RunningAverage,
   MarkovDecisionProcess, Pomdp,
 };
 
-trait TrajectorySampling<Pr, S, E, P, R, ND> {
-  fn sample_trajctory(&self, problem: &Pr, state: S, root: P, deref: &mut ND) -> Trajectory<E, P, R>;
+pub trait TrajectorySampling<Pr, S, E, P, R, ND, HS> {
+  fn sample_trajctory(
+    &self,
+    problem: &Pr,
+    state: S,
+    root: P,
+    node_store: &mut ND,
+  ) -> (Trajectory<E, P, R>, HS);
 }
 
-struct PomdpSampler<N> {
-  phantom: PhantomData<N>
-}
+pub struct PomdpSampler;
 
 impl<
     NL: NodeLink,
     P: Pomdp,
-    ND: NodeDeref<N, DualType<P::Action, P::Observation>, NL, P::R>,
-    N,
-  > TrajectorySampling<P, P::ObservationSeq, DualType<P::Action, P::Observation>, NL, P::R, ND>
-  for PomdpSampler<N>
+    ND: NodeStore<(), DualType<P::Action, P::Observation>, NL, P::R, P::ObservationSeq>,
+  >
+  TrajectorySampling<
+    P,
+    P::ObservationSeq,
+    DualType<P::Action, P::Observation>,
+    NL,
+    P::R,
+    ND,
+    P::HiddenState,
+  > for PomdpSampler
 where
   P::Action: Ord + Clone,
-  P::Observation: Ord,
+  P::Observation: Ord + Clone,
+  P::ObservationSeq: Clone,
   NL: Clone,
-  P::R: Float,
+  P::R: Float + AddAssign,
 {
   fn sample_trajctory(
     &self,
     problem: &P,
     mut obs_seq: P::ObservationSeq,
     mut root: NL,
-    deref: &mut ND,
-  ) -> Trajectory<DualType<P::Action, P::Observation>, NL, P::R> {
-    // TODO: handle node creartion
+    node_store: &mut ND,
+  ) -> (
+    Trajectory<DualType<P::Action, P::Observation>, NL, P::R>,
+    P::HiddenState,
+  ) {
+    assert!(!root.is_nil(), "Cannot start with a nil tree");
     let mut trajectory = Trajectory::new();
 
     let mut state = problem.sample_hidden_state(&obs_seq);
-    while !problem.is_terminal(&state) && !root.is_nil() {
-      let (next_node_link, ei, selected_action) = {
-        let node = deref.deref_mut(&root);
-        if node.children.is_empty() {
-          break;
-        }
-
-        let actions = problem.outgoing_edges(&state);
-        // todo: select action
-        let selected_action = actions[0].clone();
-
-        let ei = DualType::A(selected_action.clone());
-        let next_edge = node.children.get_mut(&ei).unwrap();
-        next_edge.select_count += 1;
-        (next_edge.link.clone(), ei, selected_action)
-      };
+    //while !problem.is_terminal(&state) && !root.is_nil() {
+    loop {
+      let actions = problem.outgoing_edges(&state);
+      // todo: select action
+      let selected_action = actions[0].clone();
+      let edge_index = DualType::A(selected_action.clone());
+      let (next_node_link, _) = descend(node_store, &root, &edge_index, None, true);
       trajectory.steps.push(Step {
-        node: next_node_link.clone(),
-        edge: ei,
+        node: root.clone(),
+        edge: edge_index,
         reward: P::R::neg_zero(),
       });
 
-      let (next_node_link, ei, r) = {
-        let next_node = deref.deref_mut(&next_node_link);
-
-
-        let (obs, r) = problem.transition(&mut state, &selected_action);
-        let ei = DualType::B(obs);
-        let next_edge = next_node.children.get_mut(&ei).unwrap();
-        next_edge.select_count += 1;
-        (next_edge.link.clone(), ei, r)
-      };
+      let (obs, r) = problem.transition(&mut state, &selected_action);
+      problem.update_observation_seq(&mut obs_seq, &obs);
+      let edge_index = DualType::B(obs);
+      let (next_root_link, is_new) = descend(node_store, &next_node_link, &edge_index, Some(&obs_seq), true);
+      if is_new {
+        trajectory.last_node = next_root_link;
+        return (trajectory, state);
+      }
       trajectory.steps.push(Step {
         node: next_node_link.clone(),
-        edge: ei,
+        edge: edge_index,
         reward: r,
       });
-      root = next_node_link;
+      root = next_root_link;
     }
-    trajectory
   }
 }
 
-
-struct MdpSampler<N> {
-  phantom: PhantomData<N>
-}
+pub struct MdpSampler {}
 
 impl<
     NL: NodeLink,
     P: MarkovDecisionProcess,
-    ND: NodeDeref<N, DualType<P::Action, P::State>, NL, P::R>,
-    N
-  > TrajectorySampling<P, P::State, DualType<P::Action, P::State>, NL, P::R, ND>
-  for MdpSampler<N>
+    ND: NodeStore<(), DualType<P::Action, P::State>, NL, P::R, P::State>,
+  > TrajectorySampling<P, P::State, DualType<P::Action, P::State>, NL, P::R, ND, P::State>
+  for MdpSampler
 where
   P::Action: Ord + Clone,
   P::State: Ord + Clone,
   NL: Clone,
-  P::R: Float,
+  P::R: Float + AddAssign,
 {
   fn sample_trajctory(
     &self,
     problem: &P,
     mut state: P::State,
     mut root: NL,
-    deref: &mut ND,
-  ) -> Trajectory<DualType<P::Action, P::State>, NL, P::R> {
+    node_store: &mut ND,
+  ) -> (
+    Trajectory<DualType<P::Action, P::State>, NL, P::R>,
+    P::State,
+  ) {
+    assert!(!root.is_nil(), "Cannot start with a nil tree");
     let mut trajectory = Trajectory::new();
-    while !problem.is_terminal(&state) {
-      let (next_node_link, ei, selected_action) = {
-        let node = deref.deref_mut(&root);
-        if node.children.is_empty() {
-          break;
-        }
+    //while !problem.is_terminal(&state) && !root.is_nil() {
+    loop {
 
-        let actions = problem.outgoing_edges(&state);
-        // todo: select action
-        let selected_action = actions[0].clone();
-
-        let ei = DualType::A(selected_action.clone());
-        let next_edge = node.children.get_mut(&ei).unwrap();
-        next_edge.select_count += 1;
-        (next_edge.link.clone(), ei, selected_action)
-      };
+      let actions = problem.outgoing_edges(&state);
+      // todo: select action
+      let selected_action = actions[0].clone();
+      let edge_index = DualType::A(selected_action.clone());
+      let (next_node_link, _) = descend(node_store, &root, &edge_index, None, true);
       trajectory.steps.push(Step {
-        node: next_node_link.clone(),
-        edge: ei,
+        node: root.clone(),
+        edge: edge_index,
         reward: P::R::neg_zero(),
       });
 
-      let (next_node_link, ei, r) = {
-        let next_node = deref.deref_mut(&next_node_link);
-
-        let r = problem.transition(&mut state, &selected_action);
-        let ei = DualType::B(state.clone());
-        let next_edge = next_node.children.get_mut(&ei).unwrap();
-        next_edge.select_count += 1;
-        (next_edge.link.clone(), ei, r)
-      };
+      let r = problem.transition(&mut state, &selected_action);
+      let edge_index = DualType::B(state.clone());
+      let (next_root_link, is_new) = descend(node_store, &next_node_link, &edge_index, Some(&state), true);
+      if is_new {
+        trajectory.last_node = next_root_link;
+        return (trajectory, state);
+      }
       trajectory.steps.push(Step {
         node: next_node_link.clone(),
-        edge: ei,
+        edge: edge_index,
         reward: r,
       });
-      root = next_node_link;
+      root = next_root_link;
     }
-    trajectory
   }
 }
 
-
-
-
-#[cfg(test)]
-mod test {
-  trait T<B> {
-    fn f(&self, arg: B);
+fn descend<
+  NS: NodeStore<(), E, P, R, K>,
+  E: Ord + Clone,
+  P: NodeLink + Clone,
+  R: Float + AddAssign,
+  K
+>(
+  node_store: &mut NS,
+  node_link: &P,
+  child_key: &E,
+  node_key: Option<&K>,
+  create_edge_if_missing: bool,
+) -> (P, bool) {
+  
+  if node_link.is_nil() {
+    // return nil if node itself is nil
+    return (P::nil(), false);
   }
 
-  struct my_struct<A> {
-    data: A
-  }
-
-  impl<A, B> T<B> for my_struct<A> {
-    fn f(&self, arg: B) {
+  let node = node_store.deref_mut(&node_link);
+  node.select_count += 1;
+  if !node.children.contains_key(child_key) {
+    if !create_edge_if_missing {
+      return (P::nil(), false);
     }
+    // insert edge if not exist
+    node.children.insert(
+      child_key.clone(),
+      Edge {
+        select_count: 0,
+        value: RunningAverage::new(),
+        link: P::nil(),
+      },
+    );
   }
-
-  #[test] fn t1(){
-
+  let edge = node.children.get_mut(child_key).unwrap();
+  edge.select_count += 1;
+  if !edge.link.is_nil() {
+    return (edge.link.clone(), false);
   }
+  let new_node = node_store.new_node((), node_key);
+  let node = node_store.deref_mut(&node_link);
+  let edge = node.children.get_mut(child_key).unwrap();
+  edge.link = new_node;
+  (edge.link.clone(), true)
 }

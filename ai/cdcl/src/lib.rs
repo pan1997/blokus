@@ -1,4 +1,7 @@
-use std::{collections::{BTreeMap, BTreeSet}, fmt::{Debug, Display}};
+use std::{
+  collections::{BTreeMap, BTreeSet},
+  fmt::{Debug, Display},
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Literal(i64);
@@ -36,18 +39,18 @@ impl Clause {
 
 impl Debug for Clause {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "{:?}", self.0)
+    write!(f, "{:?}", self.0)
   }
 }
 impl Debug for Literal {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "{:?}", self.0)
+    write!(f, "{:?}", self.0)
   }
 }
 
 impl Debug for Var {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "{:?}", self.0)
+    write!(f, "{:?}", self.0)
   }
 }
 
@@ -155,7 +158,7 @@ fn forward_checking_assign(
 }
 
 pub fn dpll(problem: &mut SatProblem, d: usize) -> Option<Vec<Literal>> {
-  if d==0 {
+  if d == 0 {
     return None;
   }
   let mut assignments = vec![];
@@ -182,7 +185,10 @@ pub fn dpll(problem: &mut SatProblem, d: usize) -> Option<Vec<Literal>> {
   }
 
   while !problem.vars.is_empty() {
-    println!("problem: {:?} (vars: {:?}, map: {:?})\nunits: {open_units:?}\nno_neg: {open_no_neg:?}", problem.clauses, problem.vars, problem.map);
+    println!(
+      "problem: {:?} (vars: {:?}, map: {:?})\nunits: {open_units:?}\nno_neg: {open_no_neg:?}",
+      problem.clauses, problem.vars, problem.map
+    );
 
     let l2s = if !open_units.is_empty() {
       let h = open_units[0];
@@ -219,7 +225,7 @@ pub fn dpll(problem: &mut SatProblem, d: usize) -> Option<Vec<Literal>> {
       let mut cloned_p = problem.clone();
       let res = forward_checking_assign(&mut cloned_p, l);
       if res.is_ok() {
-        let full = dpll(&mut cloned_p, d-1);
+        let full = dpll(&mut cloned_p, d - 1);
         if full.is_some() {
           assignments.push(*l);
           assignments.append(&mut full.unwrap());

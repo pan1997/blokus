@@ -1,16 +1,18 @@
-mod forest;
-mod node;
-mod search;
-mod util;
+pub mod forest;
+pub mod node;
+pub mod search;
+pub mod util;
 
-trait MarkovDecisionProcess: Discounted + Searchable<Self::State, Self::Action, Self::R> {
+pub trait MarkovDecisionProcess:
+  Discounted + Searchable<Self::State, Self::Action, Self::R>
+{
   type State;
   type Action;
   type R;
   fn start_state(&self) -> Self::State;
 }
 
-trait Pomdp:
+pub trait Pomdp:
   Discounted + Searchable<Self::HiddenState, Self::Action, (Self::Observation, Self::R)>
 {
   type Observation;
@@ -23,7 +25,7 @@ trait Pomdp:
   fn sample_hidden_state(&self, obs_seq: &Self::ObservationSeq) -> Self::HiddenState;
 }
 
-trait MultiAgentMDP<const N: usize>:
+pub trait MultiAgentMDP<const N: usize>:
   Discounted + Searchable<Self::State, [Self::Action; N], Self::R>
 {
   type State;
@@ -34,7 +36,7 @@ trait MultiAgentMDP<const N: usize>:
   fn get_agent_actions(&self, state: &Self::State, agent_index: usize) -> Vec<Self::Action>;
 }
 
-trait Searchable<N, E, T> {
+pub trait Searchable<N, E, T> {
   // Terminal states have no outgoing edges
   fn outgoing_edges(&self, n: &N) -> Vec<E>;
 
@@ -46,7 +48,7 @@ trait Searchable<N, E, T> {
   }
 }
 
-trait Discounted {
+pub trait Discounted {
   fn discount(&self) -> f32 {
     1.0
   }

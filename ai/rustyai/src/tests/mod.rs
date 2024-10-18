@@ -2,6 +2,12 @@ use std::{collections::BTreeMap, fs::File};
 
 use rand::{distributions::WeightedIndex, prelude::*};
 use rstest::*;
+use v2::{
+  forest::{Forest, NodeIndex},
+  node::{DualType, NodeStore},
+  search::{MdpSampler, TrajectorySampling},
+  Discounted, MarkovDecisionProcess, Searchable,
+};
 
 use crate::{
   search::{eval::ZeroEval, forest::refcnt_forest::Node, render::save, Random, Search, Uct},
@@ -149,6 +155,32 @@ impl MaMdp<State, Action, Observation, 1> for StaticMdp {
   }
 }
 
+impl MarkovDecisionProcess for StaticMdp {
+  type R = f32;
+  type Action = Action;
+  type State = State;
+  fn start_state(&self) -> Self::State {
+    self.start
+  }
+}
+impl Discounted for StaticMdp {}
+
+impl Searchable<State, Action, f32> for StaticMdp {
+  fn is_terminal(&self, n: &State) -> bool {
+    self.outgoing_edges(n).is_empty()
+  }
+  fn outgoing_edges(&self, n: &State) -> Vec<Action> {
+    self.states[*n].outgoing.keys().map(|x| *x).collect()
+  }
+  fn transition(&self, state: &mut State, e: &Action) -> f32 {
+    let action_def = &self.states[*state].outgoing[&e];
+    let dist = WeightedIndex::new(&action_def.weights).unwrap();
+    let ix = dist.sample(&mut rand::thread_rng());
+    *state = action_def.next_state[ix];
+    action_def.rewards[ix]
+  }
+}
+
 #[fixture]
 fn problem1() -> StaticMdp {
   let mut result = StaticMdp::new();
@@ -201,4 +233,48 @@ fn test_problem1_uct_policy(problem1: StaticMdp) {
     //println!("{iter}: rewards: {x:?}");
   }
   save(trees, File::create("test.t2.dot").unwrap(), 0, 3)
+}
+
+#[rstest]
+fn test_v2(problem1: StaticMdp) {
+  let mut ns = Forest::new(10);
+  let state = problem1.start_state();
+  let sampler = MdpSampler {};
+  let root = ns.new_root(
+    (),
+    problem1
+      .outgoing_edges(&state)
+      .into_iter()
+      .map(|a| DualType::A(a))
+      .collect(),
+  );
+  // println!("{:?}", ns);
+  v2::util::save::<_, _, _, _, _, ()>(&ns, File::create("test_v2.0.dot").unwrap(), &root);
+  for ix in 0..5 {
+    println!("next loop: {}", ix);
+    let (traj, nstate) = sampler.sample_trajctory(&problem1, state.clone(), root, &mut ns);
+    <Forest<(), DualType<usize, usize>, f32> as NodeStore<
+      (),
+      DualType<usize, usize>,
+      NodeIndex,
+      f32,
+      State,
+    >>::deref_mut(&mut ns, &traj.last_node)
+    .set_outgoing(
+      problem1
+        .outgoing_edges(&nstate)
+        .into_iter()
+        .map(|a| DualType::A(a))
+        .collect(),
+    );
+    for step in traj.steps {
+      print!("{:?}[{:?}, {:?}] -> ", step.node, step.edge, step.reward)
+    }
+    println!("{:?}", traj.last_node);
+    v2::util::save::<_, _, _, _, _, ()>(
+      &ns,
+      File::create(format!("test_v2.{ix}.dot")).unwrap(),
+      &root,
+    );
+  }
 }
