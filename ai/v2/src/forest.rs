@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::ops::AddAssign;
 
@@ -6,7 +7,7 @@ use num_traits::Float;
 use crate::node::Node;
 use crate::node::{NodeLink, NodeStore};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NodeIndex(usize);
 
 pub struct Forest<N, E, R> {
@@ -73,5 +74,51 @@ impl<N, E: Ord + Debug, R> Debug for Forest<N, E, R> {
       write!(f, "], ")?;
     }
     write!(f, "]")
+  }
+}
+
+pub struct ForestWithTT<N, E, R, K> {
+  internal: Forest<N, E, R>,
+  map: BTreeMap<K, NodeIndex>,
+}
+
+impl<N: Default, E: Ord, R: Float + AddAssign, K: Ord> ForestWithTT<N, E, R, K> {
+  pub fn new(capacity: usize) -> Self {
+    Self {
+      internal: Forest::new(capacity),
+      map: BTreeMap::new(),
+    }
+  }
+
+  pub fn new_root(&mut self, data: N, outgoing: Vec<E>, key: K) -> NodeIndex {
+    let result = self.internal.new_root(data, outgoing);
+    self.map.insert(key, result.clone());
+    result
+  }
+}
+
+impl<N: Default, E: Ord, R: Float + AddAssign, K: Ord + Clone> NodeStore<N, E, NodeIndex, R, K>
+  for ForestWithTT<N, E, R, K>
+{
+  fn deref(&self, link: &NodeIndex) -> &Node<N, E, NodeIndex, R> {
+    <Forest<N, E, R> as NodeStore<N, E, NodeIndex, R, K>>::deref(&self.internal, link)
+  }
+
+  fn deref_mut(&mut self, link: &NodeIndex) -> &mut Node<N, E, NodeIndex, R> {
+    <Forest<N, E, R> as NodeStore<N, E, NodeIndex, R, K>>::deref_mut(&mut self.internal, link)
+  }
+
+  fn new_node(&mut self, data: N, key: Option<&K>) -> NodeIndex {
+    if let Some(k) = key {
+      if self.map.contains_key(k) {
+        return self.map[k].clone();
+      } else {
+        let n = self.internal.new_node(data, key);
+        self.map.insert(k.clone(), n);
+        return n;
+      }
+    } else {
+      return self.internal.new_node(data, key);
+    }
   }
 }

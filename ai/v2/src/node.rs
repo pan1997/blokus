@@ -2,12 +2,13 @@ use std::{collections::BTreeMap, ops::AddAssign};
 
 use num_traits::Float;
 
-use crate::util::RunningAverage;
+use crate::util::{NormalizingBounds, RunningAverage};
 
 // We assume that P is nillable
 pub struct Node<N, E, P, R> {
   pub key: N,
   pub select_count: u32,
+  pub bounds: NormalizingBounds<R>,
   pub value: RunningAverage<R>,
   pub children: BTreeMap<E, Edge<P, R>>,
 }
@@ -40,6 +41,7 @@ where
     Self {
       key,
       select_count: 0,
+      bounds: NormalizingBounds::new(),
       value: RunningAverage::new(),
       children: BTreeMap::from_iter(outgoing.into_iter().map(|e| {
         (

@@ -1,5 +1,6 @@
 use std::{
   any::TypeId,
+  collections::BTreeMap,
   fmt::{self, Debug, Display},
   fs::File,
   io::Write,
@@ -17,18 +18,18 @@ use num_traits::Float;
 
 use crate::node::{DualType, Node, NodeLink, NodeStore, Trajectory};
 
-fn propogate<N, E, P, ND, R, K>(
-  nd: &mut ND,
-  mut trajectory: Trajectory<E, P, R>,
-  last_node: P,
-  mut value: R,
-) where
+pub fn propogate<N, E, P, ND, R, K>(nd: &mut ND, mut trajectory: Trajectory<E, P, R>, mut value: R)
+where
   P: NodeLink + Clone,
   E: Ord,
   ND: NodeStore<N, E, P, R, K>,
   R: Float + AddAssign + SubAssign,
 {
-  nd.deref_mut(&last_node).value.add_sample(value, 1);
+  {
+    let n = nd.deref_mut(&trajectory.last_node);
+    n.value.add_sample(value, 1);
+    n.bounds.update_bounds(value);
+  }
 
   while let Some(step) = trajectory.steps.pop() {
     let reward = step.reward;
@@ -41,8 +42,9 @@ fn propogate<N, E, P, ND, R, K>(
       .unwrap()
       .value
       .add_sample(value, 1);
-    value -= reward;
+    value += reward;
     node.value.add_sample(value, 1);
+    node.bounds.update_bounds(value);
   }
 }
 
@@ -121,15 +123,30 @@ where
   }
 }
 
-fn render<NS: NodeStore<N, E, P, R, K>, N, E: Ord + Debug, P: NodeLink + Debug, R: Display, K>(
+fn render<
+  NS: NodeStore<N, E, P, R, K>,
+  N,
+  E: Ord + Debug,
+  P: NodeLink + Debug + Ord + Clone,
+  R: Display,
+  K,
+>(
   node_store: &NS,
+  indexes: &mut BTreeMap<P, u32>,
   g: &mut Graph,
   root: &P,
   count: &mut u32,
+  theta: u32,
+  pv: bool,
 ) -> GNid {
+  if indexes.contains_key(root) {
+    let id = indexes.get(root).unwrap();
+    return GNid(Id::Plain(format!("{id}")), None);
+  }
   let id = *count;
   *count += 1;
-  let label = node_label(node_store.deref(root));
+  indexes.insert(root.clone(), id);
+  let label = node_label(node_store.deref(root), pv);
   let shape = if root.is_nil() {
     graphviz_rust::attributes::shape::point
   } else {
@@ -143,30 +160,60 @@ fn render<NS: NodeStore<N, E, P, R, K>, N, E: Ord + Debug, P: NodeLink + Debug, 
 
   if !root.is_nil() {
     let data = node_store.deref(root);
-    for (ix, o) in data.children.keys().enumerate() {
-      let edge = &data.children[o];
-      let cid = render(node_store, g, &edge.link, count);
-      let e = GEdge {
-        ty: EdgeTy::Pair(
-          Vertex::N(GNid(
-            Id::Plain(format!("{id}")),
-            Some(Port(Some(Id::Plain(format!("{ix}"))), None)),
-          )),
-          Vertex::N(cid),
-        ),
-        attributes: vec![], //vec![EdgeAttributes::label(format!("\"{o:?}\""))],
-      };
-      g.add_stmt(Stmt::Edge(e));
+    if data.select_count > theta {
+      /*let max_child = data
+      .children
+      .iter()
+      .map(|(_, e)| e.select_count)
+      .max()
+      .unwrap_or(0);*/
+
+      for (ix, o) in data.children.keys().enumerate() {
+        let edge = &data.children[o];
+        let cid = render(
+          node_store,
+          indexes,
+          g,
+          &edge.link,
+          count,
+          theta,
+          // continue pv for edges that are more that 50%
+          if edge.select_count >= data.select_count / 2 {
+            pv
+          } else {
+            false
+          },
+        );
+        let e = GEdge {
+          ty: EdgeTy::Pair(
+            Vertex::N(GNid(
+              Id::Plain(format!("{id}")),
+              Some(Port(Some(Id::Plain(format!("{ix}"))), None)),
+            )),
+            Vertex::N(cid),
+          ),
+          attributes: vec![], //vec![EdgeAttributes::label(format!("\"{o:?}\""))],
+        };
+        g.add_stmt(Stmt::Edge(e));
+      }
     }
   }
 
   GNid(Id::Plain(format!("{id}")), None)
 }
 
-pub fn save<NS: NodeStore<N, E, P, R, K>, N, E: Ord + Debug, P: NodeLink + Debug, R: Display, K>(
+pub fn save<
+  NS: NodeStore<N, E, P, R, K>,
+  N,
+  E: Ord + Debug,
+  P: NodeLink + Debug + Ord + Clone,
+  R: Display,
+  K,
+>(
   node_store: &NS,
   mut f: File,
   root: &P,
+  theta: u32,
 ) {
   let mut g = Graph::DiGraph {
     id: Id::Plain("T".to_string()),
@@ -174,32 +221,43 @@ pub fn save<NS: NodeStore<N, E, P, R, K>, N, E: Ord + Debug, P: NodeLink + Debug
     stmts: vec![],
   };
   let mut count = 0;
-  render(node_store, &mut g, root, &mut count);
+  let mut indexes = BTreeMap::new();
+  render(
+    node_store,
+    &mut indexes,
+    &mut g,
+    root,
+    &mut count,
+    theta,
+    true,
+  );
   let mut ctx = PrinterContext::default();
   write!(f, "{}", g.print(&mut ctx)).unwrap();
 }
 
-fn node_label<N, E: Ord + Debug, P, R: Display>(node: &Node<N, E, P, R>) -> String {
+fn node_label<N, E: Ord + Debug, P, R: Display>(node: &Node<N, E, P, R>, pv: bool) -> String {
   let out_row = if node.children.is_empty() {
     "".to_string()
   } else {
-    let mut bgcolor = "gold";
     let mut result =
-      format!("<table bgcolor=\"{bgcolor}\" border=\"0\" cellspacing=\"0\" cellborder=\"1\"><tr>")
+      format!("<table bgcolor=\"lightgrey\" border=\"0\" cellspacing=\"0\" cellborder=\"1\"><tr>")
         .to_string();
     for (ix, o) in node.children.keys().enumerate() {
       let e = &node.children[o];
       result.push_str(&format!(
-        "<td port=\"{ix}\">{o:?}<BR/>{}<BR/>{}</td>",
-        e.select_count, e.value.mean
+        "<td port=\"{ix}\">{o:?}<BR/>{} {:.2}</td>",
+        //"<td port=\"{ix}\">{o:?}<BR/>{}<BR/>{:.4}</td>",
+        e.select_count,
+        e.value.mean
       ));
     }
     result.push_str("</tr></table>");
     result
   };
+  let bgcolor = if pv { "silver" } else { "seashell" };
   format!(
     r#"<
-<table border="0" cellspacing="0" cellborder="1">
+<table border="0" cellspacing="0" cellborder="1" bgcolor="{bgcolor}">
 <tr><td>{}</td></tr>
 <tr><td>{:.4}, {}</td></tr>
 <tr><td>{out_row}</td></tr>

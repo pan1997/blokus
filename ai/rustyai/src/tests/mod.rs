@@ -3,9 +3,10 @@ use std::{collections::BTreeMap, fs::File};
 use rand::{distributions::WeightedIndex, prelude::*};
 use rstest::*;
 use v2::{
-  forest::{Forest, NodeIndex},
+  forest::{Forest, ForestWithTT, NodeIndex},
   node::{DualType, NodeStore},
-  search::{MdpSampler, TrajectorySampling},
+  search::{MdpSampler, RandomPolicy, TrajectorySampling, Uct as Uct_V2},
+  util::propogate,
   Discounted, MarkovDecisionProcess, Searchable,
 };
 
@@ -237,9 +238,12 @@ fn test_problem1_uct_policy(problem1: StaticMdp) {
 
 #[rstest]
 fn test_v2(problem1: StaticMdp) {
-  let mut ns = Forest::new(10);
+  let mut ns = ForestWithTT::new(1000);
   let state = problem1.start_state();
-  let sampler = MdpSampler {};
+  let sampler = MdpSampler {
+    tree_policy: Uct_V2(2.8),
+    depth_limit: 20,
+  };
   let root = ns.new_root(
     (),
     problem1
@@ -247,34 +251,46 @@ fn test_v2(problem1: StaticMdp) {
       .into_iter()
       .map(|a| DualType::A(a))
       .collect(),
+    state.clone(),
   );
   // println!("{:?}", ns);
-  v2::util::save::<_, _, _, _, _, ()>(&ns, File::create("test_v2.0.dot").unwrap(), &root);
-  for ix in 0..5 {
-    println!("next loop: {}", ix);
+  for _ in 0..10000 {
+    //println!("next loop: {}", ix);
     let (traj, nstate) = sampler.sample_trajctory(&problem1, state.clone(), root, &mut ns);
-    <Forest<(), DualType<usize, usize>, f32> as NodeStore<
+    let node = <ForestWithTT<(), DualType<usize, usize>, f32, usize> as NodeStore<
       (),
       DualType<usize, usize>,
       NodeIndex,
       f32,
       State,
-    >>::deref_mut(&mut ns, &traj.last_node)
-    .set_outgoing(
-      problem1
-        .outgoing_edges(&nstate)
-        .into_iter()
-        .map(|a| DualType::A(a))
-        .collect(),
-    );
-    for step in traj.steps {
+    >>::deref_mut(&mut ns, &traj.last_node);
+    //assert!(node.children.is_empty());
+    if node.children.is_empty() {
+      node.set_outgoing(
+        problem1
+          .outgoing_edges(&nstate)
+          .into_iter()
+          .map(|a| DualType::A(a))
+          .collect(),
+      );
+    }
+    propogate::<
+      (),
+      DualType<usize, usize>,
+      NodeIndex,
+      ForestWithTT<(), DualType<usize, usize>, f32, usize>,
+      f32,
+      usize,
+    >(&mut ns, traj, 0.0);
+    /*for step in traj.steps {
       print!("{:?}[{:?}, {:?}] -> ", step.node, step.edge, step.reward)
     }
-    println!("{:?}", traj.last_node);
-    v2::util::save::<_, _, _, _, _, ()>(
-      &ns,
-      File::create(format!("test_v2.{ix}.dot")).unwrap(),
-      &root,
-    );
+    println!("{:?}", traj.last_node);*/
   }
+  v2::util::save::<_, _, _, _, _, _>(
+    &ns,
+    File::create(format!("test_v2.dot")).unwrap(),
+    &root,
+    2000,
+  );
 }
