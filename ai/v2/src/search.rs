@@ -23,12 +23,16 @@ pub trait TrajectorySampling<Pr, S, E, P, R, ND, HS> {
   ) -> (Trajectory<E, P, R>, HS);
 }
 
-pub struct PomdpSampler;
+pub struct PomdpSampler<T> {
+  pub tree_policy: T,
+  pub depth_limit: u32,
+}
 
 impl<
     NL: NodeLink,
     P: Pomdp,
     ND: NodeStore<(), DualType<P::Action, P::Observation>, NL, P::R, P::ObservationSeq>,
+    T: TreePolicy<Node<(), DualType<P::Action, P::Observation>, NL, P::R>, DualType<P::Action, P::Observation>>,
   >
   TrajectorySampling<
     P,
@@ -38,7 +42,7 @@ impl<
     P::R,
     ND,
     P::HiddenState,
-  > for PomdpSampler
+  > for PomdpSampler<T>
 where
   P::Action: Ord + Clone,
   P::Observation: Ord + Clone,
@@ -57,19 +61,25 @@ where
     P::HiddenState,
   ) {
     assert!(!root.is_nil(), "Cannot start with a nil tree");
+    let mut remaining_depth = self.depth_limit;
     let mut trajectory = Trajectory::new();
 
     let mut state = problem.sample_hidden_state(&obs_seq);
     //while !problem.is_terminal(&state) && !root.is_nil() {
     loop {
-      let actions = problem.outgoing_edges(&state);
-      // todo: select action
-      let selected_action = actions[0].clone();
-      let edge_index = DualType::A(selected_action.clone());
-      let (next_node_link, _) = descend(node_store, &root, &edge_index, None);
+      let selected_edge = self
+        .tree_policy
+        .select_branch(node_store.deref(&root))
+        .clone();
+      let selected_action = if let DualType::A(selected_action) = &selected_edge {
+        selected_action.clone()
+      } else {
+        panic!("Invalid node type")
+      };
+      let (next_node_link, _) = descend(node_store, &root, &selected_edge, None);
       trajectory.steps.push(Step {
         node: root.clone(),
-        edge: edge_index,
+        edge: selected_edge,
         reward: P::R::neg_zero(),
       });
 
@@ -78,7 +88,8 @@ where
       let edge_index = DualType::B(obs);
       let (next_root_link, is_new) =
         descend(node_store, &next_node_link, &edge_index, Some(&obs_seq));
-      if is_new {
+      remaining_depth -= 1;
+      if is_new || remaining_depth == 0 {
         trajectory.last_node = next_root_link;
         return (trajectory, state);
       }
